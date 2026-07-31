@@ -20,6 +20,7 @@ model AppUser {
   authUserId String    @unique @map("auth_user_id") @db.Uuid
   fullName   String    @map("full_name")
   email      String    @unique
+  avatarPath String?   @map("avatar_path")
   isActive   Boolean   @default(true) @map("is_active")
   deletedAt  DateTime? @map("deleted_at") @db.Timestamptz
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
