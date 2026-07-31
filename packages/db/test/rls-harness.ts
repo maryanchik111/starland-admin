@@ -63,6 +63,11 @@ export async function asService<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
  * rolled-back transaction): `asUser` opens its own separate transaction on a
  * different connection and needs the row to already be visible there.
  *
+ * Both inserts run inside a single `prisma.$transaction` so a failure in
+ * the second insert (duplicate email, a future constraint, a connection
+ * blip) rolls back the first instead of leaving an orphaned `auth.users`
+ * row that no caller's cleanup code knows to look for.
+ *
  * Callers are responsible for deleting the returned id's rows afterwards
  * (see `rls-harness.test.ts` for the tracked-cleanup pattern) — this
  * function intentionally does not clean up after itself, matching
@@ -70,16 +75,18 @@ export async function asService<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
  */
 export async function createAuthUser(email: string): Promise<string> {
   const authUserId = randomUUID()
-  await prisma.$executeRaw`
-    insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
-    values (${authUserId}::uuid, '00000000-0000-0000-0000-000000000000'::uuid, 'authenticated', 'authenticated', ${email}, '', now(), now(), now())
-  `
-  await prisma.appUser.create({
-    data: {
-      authUserId,
-      fullName: email.split('@')[0] ?? email,
-      email,
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`
+      insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+      values (${authUserId}::uuid, '00000000-0000-0000-0000-000000000000'::uuid, 'authenticated', 'authenticated', ${email}, '', now(), now(), now())
+    `
+    await tx.appUser.create({
+      data: {
+        authUserId,
+        fullName: email.split('@')[0] ?? email,
+        email,
+      },
+    })
   })
   return authUserId
 }
