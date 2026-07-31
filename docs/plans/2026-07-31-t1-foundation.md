@@ -32,7 +32,12 @@
 ### Task 1: Монорепо, тулінг, git
 
 **Files:**
-- Create: `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json`, `.gitignore`, `.env.example`, `eslint.config.js`, `vitest.workspace.ts`
+- Create: `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json`, `.gitignore`, `.env.example`, `eslint.config.js`
+
+**Версії:** `typescript` пінимо на `^5.9` — `typescript-eslint` ще не підтримує
+TypeScript 7, і `pnpm lint` із ним падає. Конфігурації `vitest` живуть у кожному
+пакеті окремо (`packages/*/vitest.config.ts`, перший — у Task 3); кореневого
+`vitest.workspace.ts` не робимо, Vitest 4 цю конвенцію прибрав.
 - Create: `packages/db/package.json`, `packages/domain/package.json`, `packages/i18n/package.json`
 
 **Interfaces:**
