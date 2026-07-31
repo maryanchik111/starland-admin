@@ -27,17 +27,17 @@ async function createAuthUser(email: string): Promise<string> {
 }
 
 /**
- * Runs a query through the runtime role with no user context set.
+ * Runs a query as `authenticated` with no identity claim set — i.e. the
+ * role switch that `withUserContext` always performs, but no `sub`.
  *
- * `app_runtime` is created `noinherit`, so its base connection has no table
- * privileges at all until it assumes `authenticated` — a bare
- * `appPrisma.$queryRaw` with no role switch fails with "permission denied",
- * not an empty result. "No user context" means the *identity* is absent
- * (no `request.jwt.claims`), not that the role switch is skipped: this
- * still assumes the `authenticated` role, exactly like `withUserContext`,
- * but never sets a `sub` claim. `auth.uid()` then evaluates to null, so
- * `auth_user_id = auth.uid()` is false for every row and RLS returns zero
- * rows without any grant error — the behaviour the test asserts.
+ * This is deliberately NOT the same as an entirely bare connection: `app_runtime`
+ * is created `noinherit`, so its base connection has no table privileges at
+ * all until it assumes `authenticated` — a bare `appPrisma.$queryRaw` with
+ * no role switch fails with "permission denied", not an empty result (see
+ * the dedicated test below for that path). Here the role switch happens
+ * but `request.jwt.claims` is never set, so `auth.uid()` evaluates to null,
+ * `auth_user_id = auth.uid()` is false for every row, and RLS returns zero
+ * rows without any grant error — the behaviour this test asserts.
  */
 async function appPrismaRaw(): Promise<Array<{ email: string }>> {
   return appPrisma.$transaction(async (tx) => {
@@ -59,11 +59,17 @@ describe('withUserContext', () => {
     expect(rows[0]?.email).toContain('ctx-alice')
   })
 
-  it('returns nothing when no user context is set', async () => {
+  it('returns nothing when the authenticated role is assumed but no identity is set', async () => {
     await createAuthUser(`ctx-nobody-${Date.now()}@starland.test`)
 
     const rows = await appPrismaRaw()
     expect(rows).toHaveLength(0)
+  })
+
+  it('rejects with permission denied on a bare connection that never assumed a role', async () => {
+    await expect(
+      appPrisma.$queryRaw<Array<{ email: string }>>`select email from app_users`,
+    ).rejects.toThrow(/permission denied/i)
   })
 
   it('does not leak the context into the next transaction', async () => {
