@@ -37,8 +37,10 @@
 2. **Shadow database — окрема, persist-нута, з підготовленим стабом
    `auth.uid()`.** `packages/db/prisma/schema.prisma` отримав
    `shadowDatabaseUrl = env("SHADOW_DATABASE_URL")` (додатково до
-   `url`, не замість). Стаб живе в `packages/db/prisma/sql/shadow-bootstrap.sql`
-   (ідемпотентний: `create schema if not exists auth` +
+   `url`, не замість). Стаб живе в `packages/db/prisma/bootstrap/shadow-bootstrap.sql`
+   (не в `prisma/sql/` — той каталог зарезервований під Prisma TypedSQL,
+   один запит на файл, а це DDL; майбутні задачі плану вже claim'ять
+   `prisma/sql/*.sql` під TypedSQL-запити) (ідемпотентний: `create schema if not exists auth` +
    `create or replace function auth.uid() returns uuid ... select null::uuid`)
    і застосовується командою `pnpm --filter @starland/db run shadow:bootstrap`
    (`packages/db/scripts/bootstrap-shadow-db.mjs`): створює базу

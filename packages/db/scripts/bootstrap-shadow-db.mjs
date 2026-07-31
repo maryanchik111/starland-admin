@@ -8,6 +8,7 @@
 // not application code, and isn't part of the typechecked `src` tree.
 
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -53,11 +54,16 @@ try {
 // rejects multiple commands.
 // Invoked as `node <prisma-cli-entry>.js ...` (not the `prisma` shell shim)
 // so this works identically on Windows and POSIX without a shell in between.
-const sqlFile = join(__dirname, '..', 'prisma', 'sql', 'shadow-bootstrap.sql')
-const prismaCliEntry = require.resolve('prisma/build/index.js')
+// The entry file is read from prisma's own package.json `bin` field rather
+// than hardcoded, so a patch bump that relocates it can't silently break
+// this script.
+const sqlFile = join(__dirname, '..', 'prisma', 'bootstrap', 'shadow-bootstrap.sql')
+const prismaPkgPath = require.resolve('prisma/package.json')
+const prismaPkg = JSON.parse(readFileSync(prismaPkgPath, 'utf8'))
+const prismaCliEntry = join(dirname(prismaPkgPath), prismaPkg.bin.prisma)
 execFileSync(
   process.execPath,
   [prismaCliEntry, 'db', 'execute', '--file', sqlFile, '--url', shadowDatabaseUrl],
   { stdio: 'inherit' },
 )
-console.log('Applied prisma/sql/shadow-bootstrap.sql.')
+console.log('Applied prisma/bootstrap/shadow-bootstrap.sql.')
