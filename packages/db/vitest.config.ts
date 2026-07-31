@@ -26,5 +26,12 @@ if (process.env.APP_DATABASE_URL) {
 export default defineConfig({
   test: {
     environment: 'node',
+    // All test files share one live local Supabase database. Running files
+    // in parallel workers would let their transactions interleave against
+    // the same tables (and, combined with the connection_limit=1 pin above,
+    // contend for a single physical connection), producing floating
+    // failures instead of deterministic ones.
+    fileParallelism: false,
+    testTimeout: 20000,
   },
 })
