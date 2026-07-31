@@ -18,7 +18,13 @@
 - Іменування: таблиці `snake_case` у множині, колонки `snake_case`, FK `<entity>_id`, кожна таблиця має `id uuid default gen_random_uuid()`, `created_at`, `updated_at`.
 - Мова: код і колонки англійською, UI-тексти українською через `packages/i18n`.
 - `any` заборонено. Валідація на межах — Zod.
-- Кожна нова таблиця отримує позитивний і негативний RLS-тест.
+- Кожна нова таблиця отримує RLS-політики. Тести — за рівнем чутливості:
+  таблиці з персональними даними або скоупованим доступом (`students`,
+  `student_health*`, `guardianships`, `enrollments`, `person_cards`, `classes`,
+  `teaching_assignments`, `audit_logs`, `permission_grants`, `user_roles`) —
+  позитивний і негативний тест на кожну дотичну роль; довідники (`subjects`,
+  `rooms`, `bell_slots`, `academic_*`) — один спільний тест «без сесії не видно
+  нічого».
 - Комміти — на кожен крок «Commit» у плані, повідомлення англійською в стилі Conventional Commits.
 
 ---
