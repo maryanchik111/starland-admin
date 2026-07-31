@@ -397,7 +397,22 @@ alter role app_runtime nosuperuser nobypassrls;
 -- щоб не переписувати гранти на кожну нову таблицю.
 grant authenticated to app_runtime;
 grant usage on schema public to app_runtime;
+
+-- Таблиці, створені роллю `postgres` (не `supabase_admin`), НЕ отримують
+-- прав для `authenticated` за замовчуванням — RLS без гранту на select
+-- означає «підключився й нічого не бачить», а не «бачить своє». Тому:
+-- 1) явний грант на вже наявні таблиці зараз,
+grant select, insert, update, delete on all tables in schema public to authenticated;
+
+-- 2) default privileges — щоб кожна НАСТУПНА таблиця отримувала те саме
+-- автоматично, без правки цього блоку в кожній наступній міграції.
+alter default privileges for role postgres in schema public
+  grant select, insert, update, delete on tables to authenticated;
 ```
+
+RLS лишається останнім словом: grant відкриває видимість таблиці для ролі,
+а політика вирішує, які саме рядки. Без гранту політика не встигає навіть
+спрацювати — запит відхиляється на рівні прав таблиці.
 
 Пароль ролі задається поза міграцією (він секрет):
 ```bash
@@ -451,9 +466,20 @@ export async function withUserContext<T>(
 export { appPrisma, withUserContext } from './user-context.js'
 ```
 
-- [ ] **Step 5: Застосувати й запустити тести**
+- [ ] **Step 5: Застосувати й перевірити роль у живій базі перед тестами**
 
-Run: `pnpm --filter @starland/db exec prisma migrate dev && pnpm --filter @starland/db test user-context`
+Run: `pnpm --filter @starland/db exec prisma migrate dev`
+
+Перевірити, що роль справді без суперправ і без обходу RLS (не вірити коду
+міграції на слово — перевірити результат):
+```bash
+docker exec <supabase_db_container> psql -U postgres -c \
+  "select rolname, rolsuper, rolbypassrls from pg_roles where rolname='app_runtime'"
+```
+Expected: один рядок, `rolsuper = f`, `rolbypassrls = f`.
+
+Потім запустити тести:
+Run: `pnpm --filter @starland/db test user-context`
 Expected: PASS, чотири тести.
 
 - [ ] **Step 6: Оновити ADR**
