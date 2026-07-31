@@ -8,7 +8,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "vitest run --passWithNoTests",
-    "reset": "prisma migrate reset --force"
+    "reset": "prisma migrate reset --force",
+    "shadow:bootstrap": "node --env-file=.env scripts/bootstrap-shadow-db.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3"

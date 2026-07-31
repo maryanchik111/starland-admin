@@ -3,8 +3,15 @@ generator client {
 }
 
 datasource db {
-  provider          = "postgresql"
-  url               = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // Migrations here create RLS policies that call Supabase's auth.uid(),
+  // which does not exist in a plain freshly-created Postgres database.
+  // `prisma migrate dev` needs a shadow database to replay that SQL against,
+  // so SHADOW_DATABASE_URL points at one pre-seeded with a stub auth.uid().
+  // Run `pnpm --filter @starland/db run shadow:bootstrap` to prepare it
+  // (idempotent — safe after a Supabase reset or on a clean checkout).
+  // See docs/adr/0001-prisma-with-supabase-rls.md.
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
