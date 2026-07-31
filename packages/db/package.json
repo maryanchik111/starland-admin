@@ -9,12 +9,14 @@
     "lint": "eslint src",
     "test": "vitest run --passWithNoTests",
     "reset": "prisma migrate reset --force",
-    "shadow:bootstrap": "node --env-file=.env scripts/bootstrap-shadow-db.mjs"
+    "shadow:bootstrap": "node --env-file=.env scripts/bootstrap-shadow-db.mjs",
+    "seed": "tsx prisma/seed/index.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3"
   },
   "devDependencies": {
-    "prisma": "^6.19.3"
+    "prisma": "^6.19.3",
+    "tsx": "^4.19.2"
   }
 }
