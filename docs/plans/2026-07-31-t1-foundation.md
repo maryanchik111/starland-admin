@@ -247,6 +247,174 @@ git commit -m "feat(db): add supabase local setup, prisma and app_users table"
 
 ---
 
+### Task 2c: Роль застосунку і контекст користувача
+
+Додано під час виконання. Причина: Prisma підключається як `postgres`, а
+PostgreSQL не застосовує RLS до суперкористувачів — тобто політики, створені в
+Task 2, для коду застосунку не діють узагалі. Без цієї задачі решта Т1 будує
+захист, якого немає.
+
+**Files:**
+- Create: `packages/db/prisma/migrations/*_app_runtime_role/migration.sql`
+- Create: `packages/db/src/user-context.ts`, `packages/db/test/user-context.test.ts`
+- Modify: `packages/db/src/client.ts`, `packages/db/src/index.ts`, `packages/db/.env.example`
+
+**Interfaces:**
+- Consumes: Task 2
+- Produces: роль `app_runtime`, змінна `APP_DATABASE_URL`, клієнт `appPrisma`, функція `withUserContext(authUserId, fn)`
+
+- [ ] **Step 1: Написати падаючий тест**
+
+`packages/db/test/user-context.test.ts`:
+```ts
+import { describe, expect, it } from 'vitest'
+import { prisma } from '../src/index.js'
+import { withUserContext } from '../src/user-context.js'
+import { createAuthUser } from './rls-harness.js'
+
+describe('withUserContext', () => {
+  it('shows the caller only their own app_users row', async () => {
+    const alice = await createAuthUser(`ctx-alice-${Date.now()}@starland.test`)
+    await createAuthUser(`ctx-bob-${Date.now()}@starland.test`)
+
+    const rows = await withUserContext(alice, (tx) =>
+      tx.$queryRaw<Array<{ email: string }>>`select email from app_users`,
+    )
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.email).toContain('ctx-alice')
+  })
+
+  it('returns nothing when no user context is set', async () => {
+    await createAuthUser(`ctx-nobody-${Date.now()}@starland.test`)
+
+    const rows = await appPrismaRaw()
+    expect(rows).toHaveLength(0)
+  })
+
+  it('does not leak the context into the next transaction', async () => {
+    const carol = await createAuthUser(`ctx-carol-${Date.now()}@starland.test`)
+    await withUserContext(carol, (tx) => tx.$queryRaw`select 1`)
+
+    const rows = await appPrismaRaw()
+    expect(rows).toHaveLength(0)
+  })
+
+  it('still sees every row through the privileged migration client', async () => {
+    await createAuthUser(`ctx-admin-${Date.now()}@starland.test`)
+    const all = await prisma.appUser.findMany()
+    expect(all.length).toBeGreaterThan(0)
+  })
+})
+```
+
+`appPrismaRaw()` — локальний хелпер у цьому ж файлі: `appPrisma.$queryRaw` без
+контексту користувача. Третій тест — головний: він ловить витік контексту між
+транзакціями через пулер, що є найтиповішою помилкою цього підходу.
+
+- [ ] **Step 2: Запустити й переконатися, що падає**
+
+Run: `pnpm --filter @starland/db test user-context`
+Expected: FAIL — модуль `user-context.js` не знайдено.
+
+- [ ] **Step 3: Створити роль міграцією**
+
+```bash
+pnpm --filter @starland/db exec prisma migrate dev --create-only --name app_runtime_role
+```
+
+У `migration.sql`:
+```sql
+-- Роль рантайму: без суперкористувача й без права обходити RLS.
+-- Пароль приходить із оточення, у міграції його немає.
+do $$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'app_runtime') then
+    create role app_runtime login noinherit nosuperuser nocreatedb nocreaterole nobypassrls;
+  end if;
+end
+$$;
+
+alter role app_runtime nosuperuser nobypassrls;
+
+-- Права на схему й таблиці бере від штатної ролі Supabase `authenticated`,
+-- щоб не переписувати гранти на кожну нову таблицю.
+grant authenticated to app_runtime;
+grant usage on schema public to app_runtime;
+```
+
+Пароль ролі задається поза міграцією (він секрет):
+```bash
+psql "$DATABASE_URL" -c "alter role app_runtime password 'local-dev-password'"
+```
+у `.env`: `APP_DATABASE_URL=postgresql://app_runtime:local-dev-password@127.0.0.1:54322/postgres`
+у `.env.example` — тільки імена змінних.
+
+- [ ] **Step 4: Реалізувати контекст**
+
+`packages/db/src/user-context.ts`:
+```ts
+import { PrismaClient } from '@prisma/client'
+
+const globalForApp = globalThis as unknown as { appPrisma?: PrismaClient }
+
+/** Рантайм-клієнт: роль без права обходити RLS. */
+export const appPrisma =
+  globalForApp.appPrisma ??
+  new PrismaClient({ datasources: { db: { url: process.env.APP_DATABASE_URL } } })
+
+if (process.env.NODE_ENV !== 'production') globalForApp.appPrisma = appPrisma
+
+type Tx = Parameters<Parameters<PrismaClient['$transaction']>[0]>[0]
+
+/**
+ * Виконує запити від імені користувача. Контекст живе рівно одну транзакцію:
+ * `set_config(..., true)` і `set local role` скидаються на її кінці, тому
+ * зʼєднання, повернуте в пул, не несе чужих прав.
+ */
+export async function withUserContext<T>(
+  authUserId: string,
+  fn: (tx: Tx) => Promise<T>,
+): Promise<T> {
+  return appPrisma.$transaction(async (tx) => {
+    await tx.$executeRaw`select set_config('request.jwt.claims', ${JSON.stringify({
+      sub: authUserId,
+      role: 'authenticated',
+    })}, true)`
+    await tx.$executeRawUnsafe('set local role authenticated')
+    return fn(tx)
+  })
+}
+```
+
+`set local role` іде **після** `set_config`: після зміни ролі права на
+`set_config` може вже не бути.
+
+Додати в `packages/db/src/index.ts`:
+```ts
+export { appPrisma, withUserContext } from './user-context.js'
+```
+
+- [ ] **Step 5: Застосувати й запустити тести**
+
+Run: `pnpm --filter @starland/db exec prisma migrate dev && pnpm --filter @starland/db test user-context`
+Expected: PASS, чотири тести.
+
+- [ ] **Step 6: Оновити ADR**
+
+Дописати в `docs/adr/0001-prisma-with-supabase-rls.md` розділ про два підключення:
+чому міграції йдуть під `postgres`, а рантайм — під `app_runtime`, і чому
+контекст користувача транзакційний, а не на рівні зʼєднання.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add -A
+git commit -m "feat(db): add non-superuser runtime role and transactional user context"
+```
+
+---
+
 ### Task 3: Тестовий стенд для RLS
 
 Це найважливіший інструмент плану. Без нього кожна наступна політика — здогадка.
@@ -2658,6 +2826,8 @@ import { loadEffectivePermissions } from '@starland/domain'
 import type { EffectivePermissions } from '@starland/domain'
 
 export interface Session {
+  /** Ідентифікатор у auth.users — саме він іде у withUserContext. */
+  authUserId: string
   appUserId: string
   fullName: string
   permissions: EffectivePermissions
@@ -2685,6 +2855,7 @@ export async function getSession(): Promise<Session | null> {
   if (!appUser) return null
 
   return {
+    authUserId: data.user.id,
     appUserId: appUser.id,
     fullName: appUser.fullName,
     permissions: await loadEffectivePermissions(appUser.id),
@@ -2924,19 +3095,23 @@ export default async function StudentsPage({
 }: {
   searchParams: Promise<{ q?: string }>
 }) {
-  await requireSession()
+  const session = await requireSession()
   const { q } = await searchParams
 
-  // RLS сам відсіче чужих учнів — додаткового фільтра за правами тут не треба.
-  const students = await prisma.student.findMany({
-    where: q
-      ? { OR: [{ lastName: { contains: q, mode: 'insensitive' } },
-               { firstName: { contains: q, mode: 'insensitive' } }] }
-      : undefined,
-    orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
-    take: 100,
-    include: { enrollments: { where: { toDate: null }, include: { class: true }, take: 1 } },
-  })
+  // Запит іде через withUserContext, тому RLS справді відсікає чужих учнів.
+  // Через звичайний `prisma` тут була б дірка: те підключення суперкористувацьке
+  // й політики його не стосуються.
+  const students = await withUserContext(session.authUserId, (tx) =>
+    tx.student.findMany({
+      where: q
+        ? { OR: [{ lastName: { contains: q, mode: 'insensitive' } },
+                 { firstName: { contains: q, mode: 'insensitive' } }] }
+        : undefined,
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+      take: 100,
+      include: { enrollments: { where: { toDate: null }, include: { class: true }, take: 1 } },
+    }),
+  )
 
   return (
     <main className="p-6">
@@ -2978,14 +3153,18 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   const { id } = await params
   const session = await requireSession()
 
-  const student = await prisma.student.findUnique({
-    where: { id },
-    include: {
-      enrollments: { where: { toDate: null }, include: { class: true }, take: 1 },
-      guardianships: { include: { person: true } },
-      measurements: { orderBy: { measuredOn: 'desc' }, take: 10 },
-    },
-  })
+  // Через контекст користувача: чужий учень повертає null і сторінка дає 404,
+  // а не «знайшли, але не показали».
+  const student = await withUserContext(session.authUserId, (tx) =>
+    tx.student.findUnique({
+      where: { id },
+      include: {
+        enrollments: { where: { toDate: null }, include: { class: true }, take: 1 },
+        guardianships: { include: { person: true } },
+        measurements: { orderBy: { measuredOn: 'desc' }, take: 10 },
+      },
+    }),
+  )
   if (!student) notFound()
 
   const classId = student.enrollments[0]?.classId
