@@ -247,6 +247,62 @@ git commit -m "feat(db): add supabase local setup, prisma and app_users table"
 
 ---
 
+### Task 2d: Фото людей
+
+Додано під час виконання на вимогу замовника: фото використовується по всій
+системі, тому колонки мають зʼявитися до того, як на них почнуть спиратися
+екрани. Деталі — розділ 4.15 спеки.
+
+**Files:**
+- Create: `packages/db/prisma/migrations/*_people_photos/migration.sql`
+- Modify: `packages/db/prisma/schema.prisma`
+
+**Interfaces:**
+- Consumes: Task 2
+- Produces: `app_users.avatar_path`; приватний бакет `people-photos`
+  (`students.photo_path` додається разом із таблицею в Task 7)
+
+- [ ] **Step 1: Додати колонку в модель**
+
+У моделі `AppUser` в `schema.prisma`, після `email`:
+```prisma
+  avatarPath String? @map("avatar_path")
+```
+
+Зберігається **шлях у бакеті**, не URL: підписаний URL живе 5 хвилин, і його
+місце — у відповіді сервера, а не в базі.
+
+- [ ] **Step 2: Створити міграцію**
+
+```bash
+pnpm --filter @starland/db exec prisma migrate dev --create-only --name people_photos
+```
+
+У згенерований `migration.sql` дописати створення приватного бакета:
+```sql
+insert into storage.buckets (id, name, public)
+values ('people-photos', 'people-photos', false)
+on conflict (id) do nothing;
+```
+
+`public = false` — обовʼязково. Публічний бакет із фотографіями дітей — це
+витік, а не зручність.
+
+- [ ] **Step 3: Застосувати й перевірити в живій базі**
+
+Run: `pnpm --filter @starland/db exec prisma migrate dev`
+Then: `docker exec <supabase_db_container> psql -U postgres -c "select id, public from storage.buckets where id='people-photos'"`
+Expected: один рядок, `public = f`.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add -A
+git commit -m "feat(db): add avatar path and private people-photos bucket"
+```
+
+---
+
 ### Task 2c: Роль застосунку і контекст користувача
 
 Додано під час виконання. Причина: Prisma підключається як `postgres`, а
@@ -1548,6 +1604,7 @@ model Student {
   lastName     String    @map("last_name")
   middleName   String?   @map("middle_name")
   bornOn       DateTime  @map("born_on") @db.Date
+  photoPath    String?   @map("photo_path")
   livingAddress String?  @map("living_address")
   criticalNote String?   @map("critical_note")
   parentalConsentGivenAt DateTime? @map("parental_consent_given_at") @db.Date
@@ -3070,14 +3127,36 @@ export async function updateStudent(studentId: string, raw: unknown): Promise<vo
 ```tsx
 import Link from 'next/link'
 
-export function PersonLink({ id, name, kind }: { id: string; name: string; kind: 'student' | 'staff' }) {
+export function PersonLink({
+  id, name, kind, photoUrl,
+}: {
+  id: string
+  name: string
+  kind: 'student' | 'staff'
+  /** Підписаний URL із коротким TTL. Відсутній — рендеримо ініціали. */
+  photoUrl?: string | undefined
+}) {
+  const initials = name.split(' ').map((p) => p[0] ?? '').slice(0, 2).join('')
+
   return (
-    <Link className="underline underline-offset-2" href={`/${kind === 'student' ? 'students' : 'staff'}/${id}`}>
+    <Link className="inline-flex items-center gap-2 underline underline-offset-2"
+          href={`/${kind === 'student' ? 'students' : 'staff'}/${id}`}>
+      {photoUrl ? (
+        <img src={photoUrl} alt="" className="h-6 w-6 rounded-full object-cover" />
+      ) : (
+        <span aria-hidden className="grid h-6 w-6 place-items-center rounded-full bg-neutral-200 text-xs">
+          {initials}
+        </span>
+      )}
       {name}
     </Link>
   )
 }
 ```
+
+Фото приходить готовим підписаним URL, а компонент його не добуває: інакше
+список на 100 рядків зробив би 100 звернень до Storage. Заглушка з ініціалів —
+частина компонента, бо «фото ще не завантажили» це нормальний стан, а не помилка.
 
 Правило зі спеки: будь-яка згадка людини клікабельна. Один компонент означає, що це правило неможливо забути в новому екрані — інших способів вивести імʼя просто немає.
 
