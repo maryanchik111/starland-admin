@@ -79,6 +79,14 @@ describe('health notes', () => {
     expect(rows).toHaveLength(0)
   })
 
+  it('refuses direct execution of health_key() to any authenticated role', async () => {
+    const user = await makeUserWithRole(`nokey-${Date.now()}@starland.test`, 'nurse')
+
+    await expect(
+      asUser(user.authId, async (c) => c.$queryRaw`select health_key()`),
+    ).rejects.toThrow(/permission denied/)
+  })
+
   it('follows normal RLS on student_health based on health.read scope', async () => {
     const student = await prisma.student.create({
       data: { firstName: 'Довідник', lastName: 'Здоровʼя', bornOn: new Date('2014-06-06') },

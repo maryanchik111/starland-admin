@@ -6,6 +6,12 @@ create extension if not exists pgcrypto;
 create or replace function health_key() returns text
 language sql stable as $$ select current_setting('app.health_key', false) $$;
 
+-- Postgres grants EXECUTE on new functions to PUBLIC by default. Revoke it so
+-- only SECURITY DEFINER functions that run as the owner (read_health_note,
+-- write_health_note below) can call health_key() — no other role can pull
+-- the raw key directly, which would defeat student_health_notes_no_direct_read.
+revoke execute on function health_key() from public;
+
 -- current_app_user_id() і has_scope() вже створені міграцією з Task 5.
 
 create or replace function read_health_note(p_student_id uuid)
