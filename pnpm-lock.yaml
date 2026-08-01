@@ -248,7 +248,11 @@ importers:
         specifier: ^4.19.2
         version: 4.23.1
 
-  packages/domain: {}
+  packages/domain:
+    dependencies:
+      '@starland/db':
+        specifier: workspace:*
+        version: link:../db
 
   packages/i18n: {}
 

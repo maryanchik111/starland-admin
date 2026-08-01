@@ -6,3 +6,4 @@ export {
   type ScopeType,
 } from './permissions.js'
 export { ForbiddenError } from './errors.js'
+export { loadEffectivePermissions } from './permissions-loader.js'
