@@ -1,0 +1,20 @@
+-- `updated_at` on user_effective_scopes is NOT NULL with no DB-level
+-- default: the Prisma `@updatedAt` annotation is enforced only by Prisma
+-- Client, not by Postgres. Raw SQL that inserts into this table without the
+-- app's ORM layer (e.g. refresh_user_effective_scopes(), any future
+-- SECURITY DEFINER function, a manual backfill, a psql one-off) has no
+-- protection against `null value in column "updated_at"` unless it
+-- remembers to set the column explicitly every time.
+--
+-- This bit twice already: once in student_health_notes (Task 8, fixed by
+-- adding `updated_at` to specific insert statements), and again here in
+-- refresh_user_effective_scopes's Appendix A backfill (fixed the same way,
+-- ad hoc, per insert statement, in 20260801215029_effective_scopes_updated_at_fix).
+-- Giving the column a real DB-level default closes the whole class of bug
+-- permanently instead of requiring every future raw-SQL writer to remember
+-- it. This does not change ORM behavior: Prisma Client still sets
+-- `updated_at` explicitly on every write via `@updatedAt`, so the default
+-- only ever fires for writes that bypass Prisma Client (migrations,
+-- SECURITY DEFINER functions, manual SQL) — which is exactly the gap that
+-- needed closing.
+alter table user_effective_scopes alter column updated_at set default now();
