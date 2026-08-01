@@ -1,6 +1,7 @@
 import { prisma } from '../../src/index.js'
 import { PERMISSIONS } from './permissions.js'
 import { ROLES } from './roles.js'
+import { SETTINGS } from './settings.js'
 
 async function main() {
   for (const p of PERMISSIONS) {
@@ -26,6 +27,14 @@ async function main() {
         create: { roleId: role.id, permissionId: permission.id, scopeKind: rp.scope },
       })
     }
+  }
+
+  for (const [key, s] of Object.entries(SETTINGS)) {
+    await prisma.appSetting.upsert({
+      where: { key },
+      update: { description: s.description },
+      create: { key, value: s.value, description: s.description },
+    })
   }
 }
 

@@ -29,6 +29,17 @@ model AppUser {
   @@map("app_users")
 }
 
+model AppSetting {
+  key         String   @id
+  value       Json
+  description String
+  updatedBy   String?  @map("updated_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("app_settings")
+}
+
 enum ScopeKind {
   global
   own_teaching
