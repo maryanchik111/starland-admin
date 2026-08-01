@@ -1,5 +1,5 @@
 import { prisma } from '@starland/db'
-import { EffectivePermissions, type EffectiveScope, type ScopeType } from './permissions.js'
+import { EffectivePermissions, type EffectiveScope, type ScopeType } from './permissions'
 
 export async function loadEffectivePermissions(userId: string): Promise<EffectivePermissions> {
   const rows = await prisma.userEffectiveScope.findMany({

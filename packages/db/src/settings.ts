@@ -1,5 +1,5 @@
-import { prisma } from './client.js'
-import { SETTINGS, type SettingKey } from '../prisma/seed/settings.js'
+import { prisma } from './client'
+import { SETTINGS, type SettingKey } from '../prisma/seed/settings'
 
 export async function getSetting<K extends SettingKey>(
   key: K,

@@ -1,3 +1,3 @@
-export { prisma } from './client.js'
-export { appPrisma, withUserContext } from './user-context.js'
-export { getSetting } from './settings.js'
+export { prisma } from './client'
+export { appPrisma, withUserContext } from './user-context'
+export { getSetting } from './settings'

@@ -1,4 +1,4 @@
-import { ForbiddenError } from './errors.js'
+import { ForbiddenError } from './errors'
 
 export type ScopeType = 'global' | 'class' | 'subject' | 'student' | 'teaching_assignment' | 'user'
 
