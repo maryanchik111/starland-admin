@@ -202,6 +202,7 @@ model Class {
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  enrollments   Enrollment[]
 
   @@unique([academicYearId, name])
   @@index([mentorUserId])
@@ -257,4 +258,124 @@ model AcademicCalendarDay {
 
   @@unique([academicYearId, date])
   @@map("academic_calendar")
+}
+
+model Student {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  firstName    String    @map("first_name")
+  lastName     String    @map("last_name")
+  middleName   String?   @map("middle_name")
+  bornOn       DateTime  @map("born_on") @db.Date
+  photoPath    String?   @map("photo_path")
+  livingAddress String?  @map("living_address")
+  criticalNote String?   @map("critical_note")
+  parentalConsentGivenAt DateTime? @map("parental_consent_given_at") @db.Date
+  parentalConsentEnteredBy String?  @map("parental_consent_entered_by") @db.Uuid
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  enrollments   Enrollment[]
+  guardianships Guardianship[]
+  cards         PersonCard[]
+  measurements  StudentMeasurement[]
+
+  @@index([lastName, firstName])
+  @@map("students")
+}
+
+model GuardianPerson {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  firstName String    @map("first_name")
+  lastName  String    @map("last_name")
+  middleName String?  @map("middle_name")
+  phone     String?
+  email     String?
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  guardianships Guardianship[]
+
+  @@map("guardian_persons")
+}
+
+model Guardianship {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId            String   @map("student_id") @db.Uuid
+  personId             String   @map("person_id") @db.Uuid
+  relation             String
+  isLegalRepresentative Boolean @default(false) @map("is_legal_representative")
+  canPickUp            Boolean  @default(true) @map("can_pick_up")
+  receivesNotifications Boolean @default(true) @map("receives_notifications")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  student Student        @relation(fields: [studentId], references: [id])
+  person  GuardianPerson @relation(fields: [personId], references: [id])
+
+  @@unique([studentId, personId])
+  @@map("guardianships")
+}
+
+model Enrollment {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId String    @map("student_id") @db.Uuid
+  classId   String    @map("class_id") @db.Uuid
+  fromDate  DateTime  @map("from_date") @db.Date
+  toDate    DateTime? @map("to_date") @db.Date
+  status    String    @default("active")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  student Student @relation(fields: [studentId], references: [id])
+  class   Class   @relation(fields: [classId], references: [id])
+
+  @@index([classId, toDate])
+  @@index([studentId])
+  @@map("enrollments")
+}
+
+model PersonCard {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId String?   @map("student_id") @db.Uuid
+  staffUserId String? @map("staff_user_id") @db.Uuid
+  qrCode    String    @map("qr_code")
+  validFrom DateTime  @map("valid_from") @db.Date
+  validTo   DateTime? @map("valid_to") @db.Date
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  student Student? @relation(fields: [studentId], references: [id])
+
+  @@index([qrCode])
+  @@map("person_cards")
+}
+
+model StudentMeasurement {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId  String   @map("student_id") @db.Uuid
+  measuredOn DateTime @map("measured_on") @db.Date
+  heightCm   Int?     @map("height_cm")
+  weightKg   Decimal? @map("weight_kg") @db.Decimal(5, 2)
+  enteredBy  String   @map("entered_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@unique([studentId, measuredOn])
+  @@map("student_measurements")
+}
+
+model LinkedAccount {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerUserId  String   @map("owner_user_id") @db.Uuid
+  studentId    String   @map("student_id") @db.Uuid
+  linkedBy     String   @map("linked_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([ownerUserId, studentId])
+  @@map("linked_accounts")
 }
