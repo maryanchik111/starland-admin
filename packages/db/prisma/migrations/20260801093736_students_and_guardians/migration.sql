@@ -179,3 +179,25 @@ create policy students_read on students
 create policy linked_accounts_own on linked_accounts
   for select
   using (owner_user_id = (select id from app_users where auth_user_id = auth.uid()));
+
+-- Default policies for other tables: allow select if user is authenticated.
+-- More granular policies will be added in later tasks.
+create policy enrollments_read on enrollments
+  for select
+  using (current_app_user_id() is not null);
+
+create policy guardian_persons_read on guardian_persons
+  for select
+  using (current_app_user_id() is not null);
+
+create policy guardianships_read on guardianships
+  for select
+  using (current_app_user_id() is not null);
+
+create policy person_cards_read on person_cards
+  for select
+  using (current_app_user_id() is not null);
+
+create policy student_measurements_read on student_measurements
+  for select
+  using (current_app_user_id() is not null);

@@ -1,7 +1,11 @@
 -- Drop overly permissive default policies that allowed any authenticated user to read sensitive data.
 -- guardian_persons, guardianships, person_cards, student_measurements stay with RLS enabled
 -- but no policies (default-deny) until later tasks add scoped access.
-drop policy if exists enrollments_read on enrollments;
+drop policy enrollments_read on enrollments;
+drop policy guardian_persons_read on guardian_persons;
+drop policy guardianships_read on guardianships;
+drop policy person_cards_read on person_cards;
+drop policy student_measurements_read on student_measurements;
 
 -- Create SECURITY DEFINER helper function to safely access enrollments from the students_read policy.
 -- This function bypasses enrollments' RLS internally while the students table's RLS is checked normally.
