@@ -148,3 +148,113 @@ model UserEffectiveScope {
   @@index([userId, permissionCode, scopeType])
   @@map("user_effective_scopes")
 }
+
+enum CalendarDayKind {
+  holiday
+  vacation
+  remote
+  exam
+
+  @@map("calendar_day_kind")
+}
+
+model AcademicYear {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String    @unique
+  startsOn  DateTime  @map("starts_on") @db.Date
+  endsOn    DateTime  @map("ends_on") @db.Date
+  isCurrent Boolean   @default(false) @map("is_current")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  periods  AcademicPeriod[]
+  classes  Class[]
+  calendar AcademicCalendarDay[]
+
+  @@map("academic_years")
+}
+
+model AcademicPeriod {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  academicYearId String   @map("academic_year_id") @db.Uuid
+  name           String
+  ordinal        Int
+  startsOn       DateTime @map("starts_on") @db.Date
+  endsOn         DateTime @map("ends_on") @db.Date
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  @@unique([academicYearId, ordinal])
+  @@map("academic_periods")
+}
+
+model Class {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  gradeLevel     Int       @map("grade_level")
+  name           String
+  mentorUserId   String?   @map("mentor_user_id") @db.Uuid
+  assistantUserId String?  @map("assistant_user_id") @db.Uuid
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  @@unique([academicYearId, name])
+  @@index([mentorUserId])
+  @@map("classes")
+}
+
+model Subject {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String    @unique
+  name      String
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("subjects")
+}
+
+model Room {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String    @unique
+  capacity  Int?
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("rooms")
+}
+
+model BellSlot {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ordinal    Int
+  startsAt   String   @map("starts_at") @db.VarChar(5)
+  endsAt     String   @map("ends_at") @db.VarChar(5)
+  gradeLevel Int?     @map("grade_level")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([ordinal, gradeLevel])
+  @@map("bell_slots")
+}
+
+model AcademicCalendarDay {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  academicYearId String          @map("academic_year_id") @db.Uuid
+  date           DateTime        @db.Date
+  kind           CalendarDayKind
+  title          String
+  isTeachingDay  Boolean         @default(false) @map("is_teaching_day")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  @@unique([academicYearId, date])
+  @@map("academic_calendar")
+}
