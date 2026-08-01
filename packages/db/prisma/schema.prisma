@@ -450,6 +450,21 @@ model StaffAward {
   @@map("staff_awards")
 }
 
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id") @db.Uuid
+  action     String
+  oldValues  Json?    @map("old_values")
+  newValues  Json?    @map("new_values")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([entityType, entityId, createdAt])
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}
+
 model TeachingAssignment {
   id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   teacherUserId String    @map("teacher_user_id") @db.Uuid
