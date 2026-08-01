@@ -134,3 +134,17 @@ model PermissionGrant {
   @@index([userId, permissionId])
   @@map("permission_grants")
 }
+
+model UserEffectiveScope {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  permissionCode String    @map("permission_code")
+  scopeType      ScopeType @map("scope_type")
+  scopeId        String?   @map("scope_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([userId, permissionCode, scopeType, scopeId])
+  @@index([userId, permissionCode, scopeType])
+  @@map("user_effective_scopes")
+}
