@@ -203,6 +203,7 @@ model Class {
 
   academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
   enrollments   Enrollment[]
+  assignments TeachingAssignment[]
 
   @@unique([academicYearId, name])
   @@index([mentorUserId])
@@ -216,6 +217,8 @@ model Subject {
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  assignments TeachingAssignment[]
 
   @@map("subjects")
 }
@@ -416,4 +419,51 @@ model SensitiveAccessLog {
   @@index([entityType, entityId])
   @@index([userId, createdAt])
   @@map("sensitive_access_logs")
+}
+
+model StaffProfile {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String    @unique @map("user_id") @db.Uuid
+  phone         String?
+  category      String?
+  experienceYears Int?    @map("experience_years")
+  position      String?
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  awards StaffAward[]
+
+  @@map("staff_profiles")
+}
+
+model StaffAward {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profileId String   @map("profile_id") @db.Uuid
+  title     String
+  awardedOn DateTime @map("awarded_on") @db.Date
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  profile StaffProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("staff_awards")
+}
+
+model TeachingAssignment {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teacherUserId String    @map("teacher_user_id") @db.Uuid
+  subjectId     String    @map("subject_id") @db.Uuid
+  classId       String    @map("class_id") @db.Uuid
+  periodId      String    @map("period_id") @db.Uuid
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  subject Subject @relation(fields: [subjectId], references: [id])
+  class   Class   @relation(fields: [classId], references: [id])
+
+  @@unique([teacherUserId, subjectId, classId, periodId])
+  @@index([teacherUserId])
+  @@map("teaching_assignments")
 }
