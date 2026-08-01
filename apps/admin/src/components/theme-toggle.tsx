@@ -2,6 +2,7 @@
 
 import { Moon, Sun, MonitorCog } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { uk } from '@starland/i18n'
 import { Button } from '@/components/ui/button'
 
 type ThemeName = 'light' | 'dark' | 'system'
@@ -23,7 +24,7 @@ export function ThemeToggle() {
     <Button
       variant="ghost"
       size="icon"
-      aria-label="Перемкнути тему"
+      aria-label={uk.common.toggleTheme}
       onClick={() => setTheme(nextThemeInCycle(theme))}
     >
       {icon}

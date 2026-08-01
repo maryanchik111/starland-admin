@@ -7,6 +7,7 @@ export const uk = {
     empty: 'Нічого не знайдено',
     loading: 'Завантаження…',
     forbidden: 'Немає доступу',
+    toggleTheme: 'Перемкнути тему',
   },
   auth: {
     signIn: 'Увійти',
