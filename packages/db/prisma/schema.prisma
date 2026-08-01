@@ -379,3 +379,41 @@ model LinkedAccount {
   @@unique([ownerUserId, studentId])
   @@map("linked_accounts")
 }
+
+model StudentHealth {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId      String    @unique @map("student_id") @db.Uuid
+  healthGroup    String?   @map("health_group")
+  peGroup        String?   @map("pe_group")
+  allergyCodes   String[]  @map("allergy_codes")
+  chronicCodes   String[]  @map("chronic_codes")
+  activityLimits String?   @map("activity_limits")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("student_health")
+}
+
+model StudentHealthNote {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId     String   @unique @map("student_id") @db.Uuid
+  contentCipher Bytes    @map("content_cipher")
+  updatedBy     String?  @map("updated_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("student_health_notes")
+}
+
+model SensitiveAccessLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id") @db.Uuid
+  action     String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([entityType, entityId])
+  @@index([userId, createdAt])
+  @@map("sensitive_access_logs")
+}
