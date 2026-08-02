@@ -22,6 +22,14 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
+      # `prisma migrate deploy` below does NOT generate the client — only
+      # `migrate dev` does — and this repo has no `postinstall` hook. That
+      # left generation entirely to @prisma/client's own postinstall
+      # auto-detection, which resolves the schema relative to the install's
+      # working directory and is not reliable with the schema at
+      # packages/db/prisma/schema.prisma rather than the repo root. Generate
+      # explicitly instead.
+      - run: pnpm --filter @starland/db exec prisma generate
       - uses: supabase/setup-cli@v1
         with: { version: latest }
       - run: supabase start
