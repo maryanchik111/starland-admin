@@ -1,0 +1,89 @@
+'use client'
+
+import { useEffect, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { uk } from '@starland/i18n'
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import { searchPeople } from '@/app/(app)/command-menu-actions.js'
+import { NAV_ITEMS, type NavItem } from './nav-config.js'
+import type { PersonResult } from '@/lib/search-people.js'
+
+export function CommandMenu({ items }: { items: readonly NavItem[] }) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [people, setPeople] = useState<PersonResult[]>([])
+  const [isPending, startTransition] = useTransition()
+  const router = useRouter()
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        setOpen((prev) => !prev)
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [])
+
+  useEffect(() => {
+    if (query.trim().length < 2) {
+      setPeople([])
+      return
+    }
+    startTransition(async () => {
+      setPeople(await searchPeople(query))
+    })
+  }, [query])
+
+  return (
+    <CommandDialog open={open} onOpenChange={setOpen}>
+      <CommandInput
+        placeholder={uk.common.commandPlaceholder}
+        value={query}
+        onValueChange={setQuery}
+      />
+      <CommandList>
+        <CommandEmpty>{isPending ? uk.common.searching : uk.common.empty}</CommandEmpty>
+        <CommandGroup heading={uk.common.navSections}>
+          {items.map((item) => (
+            <CommandItem
+              key={item.url}
+              value={item.title}
+              onSelect={() => {
+                setOpen(false)
+                router.push(item.url)
+              }}
+            >
+              <item.icon />
+              <span>{item.title}</span>
+            </CommandItem>
+          ))}
+        </CommandGroup>
+        {people.length > 0 && (
+          <CommandGroup heading={uk.students.title}>
+            {people.map((person) => (
+              <CommandItem
+                key={person.id}
+                value={person.name}
+                onSelect={() => {
+                  setOpen(false)
+                  router.push(`/students/${person.id}`)
+                }}
+              >
+                <span>{person.name}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+      </CommandList>
+    </CommandDialog>
+  )
+}

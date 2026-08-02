@@ -9,6 +9,8 @@ export const uk = {
     forbidden: 'Немає доступу',
     toggleTheme: 'Перемкнути тему',
     navSections: 'Розділи',
+    commandPlaceholder: 'Пошук розділу чи учня…',
+    searching: 'Пошук…',
     userMenuLabel: 'Меню користувача',
     signOut: 'Вийти',
   },
