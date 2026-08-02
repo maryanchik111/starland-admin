@@ -35,13 +35,14 @@ export function CommandMenu({ items }: { items: readonly NavItem[] }) {
 
   useEffect(() => {
     if (query.trim().length < 2) {
-      setPeople([])
       return
     }
     startTransition(async () => {
       setPeople(await searchPeople(query))
     })
   }, [query])
+
+  const visiblePeople = query.trim().length < 2 ? [] : people
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
@@ -67,9 +68,9 @@ export function CommandMenu({ items }: { items: readonly NavItem[] }) {
             </CommandItem>
           ))}
         </CommandGroup>
-        {people.length > 0 && (
+        {visiblePeople.length > 0 && (
           <CommandGroup heading={uk.students.title}>
-            {people.map((person) => (
+            {visiblePeople.map((person) => (
               <CommandItem
                 key={person.id}
                 value={person.name}
