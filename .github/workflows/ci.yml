@@ -6,13 +6,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # No `version:` pinned here on purpose — pnpm/action-setup@v4 reads the
-      # `packageManager` field in package.json ("pnpm@^11.11.0") and installs
-      # a matching pnpm automatically, so this never drifts out of sync with
-      # the version actually used to write pnpm-lock.yaml (a lockfile written
-      # by pnpm 11 is not guaranteed to satisfy `--frozen-lockfile` under
-      # pnpm 9, and vice versa).
+      # Pinned explicitly to match this repo's actual pnpm major version.
+      # pnpm/action-setup@v4's auto-detection reads a top-level
+      # `packageManager` field (the corepack-style string field, e.g.
+      # "pnpm@11.11.0") — this repo does NOT have that field. It only has
+      # `devEngines.packageManager` (a Node.js devEngines hint object with a
+      # semver range), which is a different, informational-only field the
+      # action does not read. Auto-detection would find nothing here and the
+      # step would fail with an "unable to determine version" error, so we
+      # pin explicitly instead. Keep this in sync with
+      # `devEngines.packageManager.version` in package.json (currently
+      # "^11.11.0") if that ever changes.
       - uses: pnpm/action-setup@v4
+        with: { version: 11 }
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
