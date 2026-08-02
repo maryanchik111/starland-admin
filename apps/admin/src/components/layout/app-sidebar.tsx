@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { uk } from '@starland/i18n'
 import type { EffectivePermissions } from '@starland/domain'
 import {
   Sidebar,
@@ -27,7 +28,7 @@ export function AppSidebar({ permissions }: { permissions: EffectivePermissions 
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Розділи</SidebarGroupLabel>
+          <SidebarGroupLabel>{uk.common.navSections}</SidebarGroupLabel>
           <SidebarMenu>
             {items.map((item) => (
               <SidebarMenuItem key={item.url}>

@@ -1,6 +1,7 @@
 'use client'
 
 import { LogOut } from 'lucide-react'
+import { uk } from '@starland/i18n'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -22,7 +23,7 @@ export function UserMenu({ fullName }: { fullName: string }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button aria-label="Меню користувача" className="rounded-full">
+        <button aria-label={uk.common.userMenuLabel} className="rounded-full">
           <Avatar>
             <AvatarFallback>{initials(fullName).toUpperCase()}</AvatarFallback>
           </Avatar>
@@ -33,7 +34,7 @@ export function UserMenu({ fullName }: { fullName: string }) {
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => void signOut()}>
           <LogOut />
-          <span>Вийти</span>
+          <span>{uk.common.signOut}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

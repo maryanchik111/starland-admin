@@ -8,6 +8,9 @@ export const uk = {
     loading: 'Завантаження…',
     forbidden: 'Немає доступу',
     toggleTheme: 'Перемкнути тему',
+    navSections: 'Розділи',
+    userMenuLabel: 'Меню користувача',
+    signOut: 'Вийти',
   },
   auth: {
     signIn: 'Увійти',
