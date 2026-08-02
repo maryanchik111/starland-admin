@@ -12,6 +12,7 @@ export async function updateStudent(studentId: string, raw: unknown): Promise<vo
   })
   await updateStudentWithPermissions(
     session.permissions,
+    { authUserId: session.authUserId },
     { id: studentId, classId: enrollment.classId },
     raw,
   )
