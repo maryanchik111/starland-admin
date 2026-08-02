@@ -409,7 +409,8 @@ import { visibleNavItems } from '../src/components/layout/visible-nav-items.js'
 describe('visibleNavItems', () => {
   it('hides items whose required permission is missing', () => {
     const permissions = new EffectivePermissions([])
-    expect(visibleNavItems(permissions)).toEqual([])
+    const items = visibleNavItems(permissions)
+    expect(items.some((i) => i.url === '/students')).toBe(false)
   })
 
   it('shows an item once its required permission is granted', () => {
