@@ -85,7 +85,7 @@ afterEach(async () => {
 describe('updateStudentWithPermissions audit actor', () => {
   it('records the editing user as the audit actor, not NULL', async () => {
     const { cls, student } = await makeStudentInClass()
-    const editor = await makeUser(`audit-actor-${randomUUID()}@starland.test`)
+    const editor = await makeUser(`audit-actor-${randomUUID()}@admin-starland.test`)
     const permissions = new EffectivePermissions([
       { permissionCode: 'students.write', scopeType: 'class', scopeId: cls.id },
     ])
@@ -112,7 +112,7 @@ describe('updateStudentWithPermissions audit actor', () => {
 
   it('does not leave the actor claim on the connection after the transaction', async () => {
     const { cls, student } = await makeStudentInClass()
-    const editor = await makeUser(`audit-leak-${randomUUID()}@starland.test`)
+    const editor = await makeUser(`audit-leak-${randomUUID()}@admin-starland.test`)
     const permissions = new EffectivePermissions([
       { permissionCode: 'students.write', scopeType: 'class', scopeId: cls.id },
     ])
