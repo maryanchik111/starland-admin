@@ -1,0 +1,51 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # No `version:` pinned here on purpose — pnpm/action-setup@v4 reads the
+      # `packageManager` field in package.json ("pnpm@^11.11.0") and installs
+      # a matching pnpm automatically, so this never drifts out of sync with
+      # the version actually used to write pnpm-lock.yaml (a lockfile written
+      # by pnpm 11 is not guaranteed to satisfy `--frozen-lockfile` under
+      # pnpm 9, and vice versa).
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+      - run: supabase start
+      - run: psql "$DATABASE_URL" -c "alter database postgres set app.health_key = 'ci-key'"
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      - run: pnpm --filter @starland/db exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      # `prisma migrate deploy` above is what creates the non-superuser
+      # `app_runtime` role (see the app_runtime_role migration). Its password
+      # is intentionally never baked into a migration file (it's a secret —
+      # see docs/adr/0001-prisma-with-supabase-rls.md) and must be set
+      # out-of-band, the same way a local developer sets it manually after
+      # applying migrations.
+      - run: psql "$DATABASE_URL" -c "alter role app_runtime password 'ci-runtime-password'"
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      - run: pnpm --filter @starland/db seed
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      - run: pnpm typecheck
+      - run: pnpm lint
+      # Almost all RLS tests (via packages/db/test/rls-harness.ts's `asUser`)
+      # connect through `withUserContext`/`appPrisma`, which reads
+      # APP_DATABASE_URL (the app_runtime role), not DATABASE_URL. Without
+      # this, every RLS-dependent test fails in CI even though it passes
+      # locally where a developer has already set APP_DATABASE_URL in
+      # packages/db/.env.
+      - run: pnpm test
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+          APP_DATABASE_URL: postgresql://app_runtime:ci-runtime-password@127.0.0.1:54322/postgres
