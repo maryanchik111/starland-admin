@@ -9,16 +9,25 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
 
   // Через контекст користувача: чужий учень повертає null і сторінка дає 404,
   // а не «знайшли, але не показали».
-  const student = await withUserContext(session.authUserId, (tx) =>
-    tx.student.findUnique({
+  // The class name is fetched separately rather than as a nested
+  // `include: { class: true }`: `class` is a required relation, `classes.read`
+  // is a separate permission from `students.read`, and Prisma throws on a
+  // required relation the viewer's RLS hides. See apps/admin/src/app/students/page.tsx.
+  const { student, className } = await withUserContext(session.authUserId, async (tx) => {
+    const student = await tx.student.findUnique({
       where: { id },
       include: {
-        enrollments: { where: { toDate: null }, include: { class: true }, take: 1 },
+        enrollments: { where: { toDate: null }, take: 1 },
         guardianships: { include: { person: true } },
         measurements: { orderBy: { measuredOn: 'desc' }, take: 10 },
       },
-    }),
-  )
+    })
+    const classId = student?.enrollments[0]?.classId
+    const cls = classId
+      ? await tx.class.findUnique({ where: { id: classId }, select: { name: true } })
+      : null
+    return { student, className: cls?.name ?? null }
+  })
   if (!student) notFound()
 
   const classId = student.enrollments[0]?.classId
@@ -35,7 +44,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
         </p>
       )}
       <dl className="mt-4 grid grid-cols-2 gap-2">
-        <dt>{uk.students.class}</dt><dd>{student.enrollments[0]?.class.name ?? '—'}</dd>
+        <dt>{uk.students.class}</dt><dd>{className ?? '—'}</dd>
         <dt>{uk.students.bornOn}</dt><dd>{student.bornOn.toLocaleDateString('uk-UA')}</dd>
         <dt>{uk.students.address}</dt><dd>{student.livingAddress ?? '—'}</dd>
       </dl>
