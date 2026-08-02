@@ -13,6 +13,9 @@ export const uk = {
     searching: 'Пошук…',
     userMenuLabel: 'Меню користувача',
     signOut: 'Вийти',
+    dashboard: 'Дашборд',
+    commandPaletteTitle: 'Командна панель',
+    commandPaletteDescription: 'Введіть запит для пошуку розділу чи учня',
   },
   auth: {
     signIn: 'Увійти',

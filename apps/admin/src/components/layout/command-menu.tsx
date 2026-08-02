@@ -12,10 +12,10 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { searchPeople } from '@/app/(app)/command-menu-actions.js'
-import { NAV_ITEMS, type NavItem } from './nav-config.js'
+import { NAV_ITEMS, type SerializableNavItem } from './nav-config.js'
 import type { PersonResult } from '@/lib/search-people.js'
 
-export function CommandMenu({ items }: { items: readonly NavItem[] }) {
+export function CommandMenu({ items }: { items: readonly SerializableNavItem[] }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [people, setPeople] = useState<PersonResult[]>([])
@@ -37,15 +37,27 @@ export function CommandMenu({ items }: { items: readonly NavItem[] }) {
     if (query.trim().length < 2) {
       return
     }
+    let cancelled = false
     startTransition(async () => {
-      setPeople(await searchPeople(query))
+      const results = await searchPeople(query)
+      if (!cancelled) {
+        setPeople(results)
+      }
     })
+    return () => {
+      cancelled = true
+    }
   }, [query])
 
   const visiblePeople = query.trim().length < 2 ? [] : people
 
   return (
-    <CommandDialog open={open} onOpenChange={setOpen}>
+    <CommandDialog
+      open={open}
+      onOpenChange={setOpen}
+      title={uk.common.commandPaletteTitle}
+      description={uk.common.commandPaletteDescription}
+    >
       <CommandInput
         placeholder={uk.common.commandPlaceholder}
         value={query}
@@ -54,19 +66,22 @@ export function CommandMenu({ items }: { items: readonly NavItem[] }) {
       <CommandList>
         <CommandEmpty>{isPending ? uk.common.searching : uk.common.empty}</CommandEmpty>
         <CommandGroup heading={uk.common.navSections}>
-          {items.map((item) => (
-            <CommandItem
-              key={item.url}
-              value={item.title}
-              onSelect={() => {
-                setOpen(false)
-                router.push(item.url)
-              }}
-            >
-              <item.icon />
-              <span>{item.title}</span>
-            </CommandItem>
-          ))}
+          {items.map((item) => {
+            const Icon = NAV_ITEMS.find((n) => n.url === item.url)?.icon
+            return (
+              <CommandItem
+                key={item.url}
+                value={item.title}
+                onSelect={() => {
+                  setOpen(false)
+                  router.push(item.url)
+                }}
+              >
+                {Icon && <Icon />}
+                <span>{item.title}</span>
+              </CommandItem>
+            )
+          })}
         </CommandGroup>
         {visiblePeople.length > 0 && (
           <CommandGroup heading={uk.students.title}>

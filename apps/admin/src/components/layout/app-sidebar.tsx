@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { uk } from '@starland/i18n'
-import type { EffectivePermissions } from '@starland/domain'
 import {
   Sidebar,
   SidebarContent,
@@ -15,11 +14,10 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from '@/components/ui/sidebar'
-import { visibleNavItems } from './visible-nav-items.js'
+import { NAV_ITEMS, type SerializableNavItem } from './nav-config.js'
 
-export function AppSidebar({ permissions }: { permissions: EffectivePermissions }) {
+export function AppSidebar({ items }: { items: SerializableNavItem[] }) {
   const pathname = usePathname()
-  const items = visibleNavItems(permissions)
 
   return (
     <Sidebar collapsible="icon">
@@ -30,16 +28,19 @@ export function AppSidebar({ permissions }: { permissions: EffectivePermissions 
         <SidebarGroup>
           <SidebarGroupLabel>{uk.common.navSections}</SidebarGroupLabel>
           <SidebarMenu>
-            {items.map((item) => (
-              <SidebarMenuItem key={item.url}>
-                <SidebarMenuButton asChild isActive={pathname === item.url} tooltip={item.title}>
-                  <Link href={item.url}>
-                    <item.icon />
-                    <span>{item.title}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+            {items.map((item) => {
+              const Icon = NAV_ITEMS.find((n) => n.url === item.url)?.icon
+              return (
+                <SidebarMenuItem key={item.url}>
+                  <SidebarMenuButton asChild isActive={pathname === item.url} tooltip={item.title}>
+                    <Link href={item.url}>
+                      {Icon && <Icon />}
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            })}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
