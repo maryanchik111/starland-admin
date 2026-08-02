@@ -488,6 +488,7 @@ Expected: PASS, три тести.
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { uk } from '@starland/i18n'
 import type { EffectivePermissions } from '@starland/domain'
 import {
   Sidebar,
@@ -513,7 +514,7 @@ export function AppSidebar({ permissions }: { permissions: EffectivePermissions 
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Розділи</SidebarGroupLabel>
+          <SidebarGroupLabel>{uk.common.navSections}</SidebarGroupLabel>
           <SidebarMenu>
             {items.map((item) => (
               <SidebarMenuItem key={item.url}>
@@ -594,6 +595,7 @@ export async function signOut(): Promise<void> {
 'use client'
 
 import { LogOut } from 'lucide-react'
+import { uk } from '@starland/i18n'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -615,7 +617,7 @@ export function UserMenu({ fullName }: { fullName: string }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button aria-label="Меню користувача" className="rounded-full">
+        <button aria-label={uk.common.userMenuLabel} className="rounded-full">
           <Avatar>
             <AvatarFallback>{initials(fullName).toUpperCase()}</AvatarFallback>
           </Avatar>
@@ -626,7 +628,7 @@ export function UserMenu({ fullName }: { fullName: string }) {
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => void signOut()}>
           <LogOut />
-          <span>Вийти</span>
+          <span>{uk.common.signOut}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -819,6 +821,7 @@ export async function searchPeople(query: string): Promise<PersonResult[]> {
 
 import { useEffect, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { uk } from '@starland/i18n'
 import {
   CommandDialog,
   CommandEmpty,
@@ -862,13 +865,13 @@ export function CommandMenu({ items }: { items: readonly NavItem[] }) {
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
       <CommandInput
-        placeholder="Пошук розділу чи учня…"
+        placeholder={uk.common.commandPlaceholder}
         value={query}
         onValueChange={setQuery}
       />
       <CommandList>
-        <CommandEmpty>{isPending ? 'Пошук…' : 'Нічого не знайдено'}</CommandEmpty>
-        <CommandGroup heading="Розділи">
+        <CommandEmpty>{isPending ? uk.common.searching : uk.common.empty}</CommandEmpty>
+        <CommandGroup heading={uk.common.navSections}>
           {items.map((item) => (
             <CommandItem
               key={item.url}
@@ -884,7 +887,7 @@ export function CommandMenu({ items }: { items: readonly NavItem[] }) {
           ))}
         </CommandGroup>
         {people.length > 0 && (
-          <CommandGroup heading="Учні">
+          <CommandGroup heading={uk.students.title}>
             {people.map((person) => (
               <CommandItem
                 key={person.id}
