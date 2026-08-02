@@ -35,6 +35,7 @@ describe('health notes', () => {
     // a separate writer identity so the write's own audit entry doesn't
     // muddy the assertion below about the nurse's read producing one log row.
     const writer = await makeUserWithRole(`writer-${Date.now()}@starland.test`, 'nurse')
+    await grantScope(writer.userId, 'health.write')
     await asUser(writer.authId, (c) => c.$executeRaw`select write_health_note(${student.id}::uuid, 'Астма, інгалятор у медкабінеті')`)
 
     const note = await asUser(nurse.authId, async (c) => {
@@ -56,16 +57,36 @@ describe('health notes', () => {
     const student = await prisma.student.create({
       data: { firstName: 'Леся', lastName: 'Українка', bornOn: new Date('2014-02-25') },
     })
-    await asUser(secretary.authId, (c) => c.$executeRaw`select write_health_note(${student.id}::uuid, 'Алергія на пеніцилін')`)
+    // Since finding I1, write_health_note itself requires `health.write`, so
+    // the note has to be seeded by an identity that legitimately holds it.
+    // (Before I1 the secretary could write it — that WAS the bug.)
+    const writer = await makeUserWithRole(`writer-sec-${Date.now()}@starland.test`, 'nurse')
+    await grantScope(writer.userId, 'health.write')
+    await asUser(writer.authId, (c) => c.$executeRaw`select write_health_note(${student.id}::uuid, 'Алергія на пеніцилін')`)
 
     await expect(
       asUser(secretary.authId, async (c) => c.$queryRaw`select read_health_note(${student.id}::uuid)`),
     ).rejects.toThrow(/insufficient_permission/)
   })
 
+  it('refuses to let a user without health.write overwrite a note', async () => {
+    const secretary = await makeUserWithRole(`nowrite-${Date.now()}@starland.test`, 'secretary')
+    const student = await prisma.student.create({
+      data: { firstName: 'Чужа', lastName: 'Нотатка', bornOn: new Date('2014-04-04') },
+    })
+
+    await expect(
+      asUser(secretary.authId, (c) => c.$executeRaw`select write_health_note(${student.id}::uuid, 'Підроблена нотатка')`),
+    ).rejects.toThrow(/insufficient_permission/)
+
+    const notes = await prisma.studentHealthNote.findMany({ where: { studentId: student.id } })
+    expect(notes).toHaveLength(0)
+  })
+
   it('blocks direct select on student_health_notes even with global health_notes.read scope', async () => {
     const user = await makeUserWithRole(`directread-${Date.now()}@starland.test`, 'nurse')
     await grantScope(user.userId, 'health_notes.read')
+    await grantScope(user.userId, 'health.write')
 
     const student = await prisma.student.create({
       data: { firstName: 'Пряме', lastName: 'Читання', bornOn: new Date('2014-05-05') },

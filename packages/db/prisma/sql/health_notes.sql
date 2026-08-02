@@ -46,6 +46,14 @@ security definer
 set search_path = public, extensions
 as $$
 begin
+  -- Mirrors read_health_note's guard. Without it, `security definer` plus the
+  -- default PUBLIC execute grant let any authenticated user overwrite any
+  -- student's encrypted medical note. `health.write` at global scope is what
+  -- the `nurse` role carries in prisma/seed/roles.ts.
+  if not has_scope('health.write', 'global') then
+    raise exception 'insufficient_permission' using errcode = '42501';
+  end if;
+
   insert into student_health_notes (student_id, content_cipher, updated_by, updated_at)
   values (p_student_id, pgp_sym_encrypt(p_content, health_key()), current_app_user_id(), now())
   on conflict (student_id) do update
