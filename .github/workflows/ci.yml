@@ -29,7 +29,15 @@ jobs:
       # working directory and is not reliable with the schema at
       # packages/db/prisma/schema.prisma rather than the repo root. Generate
       # explicitly instead.
+      #
+      # DATABASE_URL is required even though `generate` never connects:
+      # Prisma resolves `env("DATABASE_URL")` in the datasource block while
+      # loading the schema and errors out if it is unset (verified —
+      # `prisma validate` fails the same way without it). Locally the value
+      # comes from packages/db/.env, which is gitignored and absent in CI.
       - run: pnpm --filter @starland/db exec prisma generate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
       - uses: supabase/setup-cli@v1
         with: { version: latest }
       - run: supabase start
