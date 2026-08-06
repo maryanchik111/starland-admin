@@ -32,6 +32,10 @@ export const uk = {
     criticalNote: 'Критично важливе',
     guardians: 'Батьки та опікуни',
     measurements: 'Вимірювання',
+    actions: 'Дії',
+    openMenu: 'Відкрити меню',
+    view: 'Переглянути',
+    noClass: '—',
   },
   dataTable: {
     sortAsc: 'Зростання',
