@@ -50,6 +50,16 @@ export const uk = {
     updateSuccess: 'Дані учня збережено',
     updateError: 'Не вдалося зберегти зміни',
   },
+  users: {
+    title: 'Користувачі',
+    fullName: 'ПІБ',
+    email: 'Електронна пошта',
+    roles: 'Ролі',
+    status: 'Статус',
+    active: 'Активний',
+    inactive: 'Неактивний',
+    noRoles: '—',
+  },
   dataTable: {
     sortAsc: 'Зростання',
     sortDesc: 'Спадання',

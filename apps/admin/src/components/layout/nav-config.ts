@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { LayoutDashboard, Users } from 'lucide-react'
+import { LayoutDashboard, UserCog, Users } from 'lucide-react'
 import { uk } from '@starland/i18n'
 
 export interface NavItem {
@@ -19,4 +19,5 @@ export interface SerializableNavItem {
 export const NAV_ITEMS: readonly NavItem[] = [
   { title: uk.common.dashboard, url: '/', icon: LayoutDashboard, permissionCode: null },
   { title: uk.students.title, url: '/students', icon: Users, permissionCode: 'students.read' },
+  { title: uk.users.title, url: '/users', icon: UserCog, permissionCode: 'users.read' },
 ] as const
