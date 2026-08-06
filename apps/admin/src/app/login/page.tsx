@@ -3,6 +3,12 @@
 import { useState } from 'react'
 import { createBrowserClient } from '@supabase/ssr'
 import { uk } from '@starland/i18n'
+import { AlertCircle } from 'lucide-react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -24,14 +30,48 @@ export default function LoginPage() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="mx-auto mt-24 flex w-80 flex-col gap-3">
-      <h1 className="text-xl font-semibold">Starland</h1>
-      <input className="rounded border px-3 py-2" type="email" placeholder={uk.auth.email}
-             value={email} onChange={(e) => setEmail(e.target.value)} required />
-      <input className="rounded border px-3 py-2" type="password" placeholder={uk.auth.password}
-             value={password} onChange={(e) => setPassword(e.target.value)} required />
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <button className="rounded bg-black px-3 py-2 text-white" type="submit">{uk.auth.signIn}</button>
-    </form>
+    <main className="flex min-h-screen items-center justify-center p-6">
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle>Starland</CardTitle>
+          <CardDescription>{uk.auth.signIn}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={onSubmit} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="email">{uk.auth.email}</Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="password">{uk.auth.password}</Label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            <Button type="submit" className="w-full">
+              {uk.auth.signIn}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    </main>
   )
 }

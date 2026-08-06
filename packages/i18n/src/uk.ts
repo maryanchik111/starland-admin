@@ -23,6 +23,10 @@ export const uk = {
     password: 'Пароль',
     invalidCredentials: 'Невірна пошта або пароль',
   },
+  dashboard: {
+    welcomeTitle: 'Вітаємо',
+    welcomeDescription: 'Цей розділ ще в розробці. Тут з’явиться огляд школи.',
+  },
   students: {
     title: 'Учні',
     fullName: 'ПІБ',
