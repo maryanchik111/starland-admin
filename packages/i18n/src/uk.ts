@@ -33,4 +33,18 @@ export const uk = {
     guardians: 'Батьки та опікуни',
     measurements: 'Вимірювання',
   },
+  dataTable: {
+    sortAsc: 'Зростання',
+    sortDesc: 'Спадання',
+    hideColumn: 'Сховати',
+    reset: 'Скинути',
+    rowsPerPage: 'Рядків на сторінці',
+    page: 'Сторінка',
+    of: 'з',
+    goToFirstPage: 'На першу сторінку',
+    goToPreviousPage: 'На попередню сторінку',
+    goToNextPage: 'На наступну сторінку',
+    goToLastPage: 'На останню сторінку',
+    searchPlaceholder: 'Пошук…',
+  },
 } as const
