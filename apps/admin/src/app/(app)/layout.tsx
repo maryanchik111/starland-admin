@@ -1,8 +1,8 @@
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
-import { AppSidebar } from '@/components/layout/app-sidebar.js'
-import { Header } from '@/components/layout/header.js'
-import { CommandMenu } from '@/components/layout/command-menu.js'
-import { visibleNavItems } from '@/components/layout/visible-nav-items.js'
+import { AppSidebar } from '@/components/layout/app-sidebar'
+import { Header } from '@/components/layout/header'
+import { CommandMenu } from '@/components/layout/command-menu'
+import { visibleNavItems } from '@/components/layout/visible-nav-items'
 import { requireSession } from '@/lib/session'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {

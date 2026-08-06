@@ -14,7 +14,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from '@/components/ui/sidebar'
-import { NAV_ITEMS, type SerializableNavItem } from './nav-config.js'
+import { NAV_ITEMS, type SerializableNavItem } from './nav-config'
 
 export function AppSidebar({ items }: { items: SerializableNavItem[] }) {
   const pathname = usePathname()

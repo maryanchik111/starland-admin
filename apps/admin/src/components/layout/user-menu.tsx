@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { signOut } from '@/app/(app)/sign-out/actions.js'
+import { signOut } from '@/app/(app)/sign-out/actions'
 
 function initials(fullName: string): string {
   const parts = fullName.trim().split(/\s+/).filter(Boolean)

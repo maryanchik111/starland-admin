@@ -1,7 +1,7 @@
 import { Separator } from '@/components/ui/separator'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { UserMenu } from './user-menu.js'
+import { UserMenu } from './user-menu'
 
 export function Header({ fullName }: { fullName: string }) {
   return (

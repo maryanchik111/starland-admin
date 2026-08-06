@@ -11,9 +11,9 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
-import { searchPeople } from '@/app/(app)/command-menu-actions.js'
-import { NAV_ITEMS, type SerializableNavItem } from './nav-config.js'
-import type { PersonResult } from '@/lib/search-people.js'
+import { searchPeople } from '@/app/(app)/command-menu-actions'
+import { NAV_ITEMS, type SerializableNavItem } from './nav-config'
+import type { PersonResult } from '@/lib/search-people'
 
 export function CommandMenu({ items }: { items: readonly SerializableNavItem[] }) {
   const [open, setOpen] = useState(false)
