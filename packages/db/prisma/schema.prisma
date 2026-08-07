@@ -112,16 +112,21 @@ model RolePermission {
 }
 
 model UserRole {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  roleId    String   @map("role_id") @db.Uuid
-  grantedBy String?  @map("granted_by") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  roleId    String    @map("role_id") @db.Uuid
+  grantedBy String?   @map("granted_by") @db.Uuid
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+  revokedBy String?   @map("revoked_by") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, roleId])
+  // Partial unique index (userId, roleId) WHERE revoked_at IS NULL lives in
+  // the migration's raw SQL — Prisma has no declarative way to express a
+  // partial unique index, so it isn't modeled here (see
+  // 20260807085015_user_role_soft_revoke/migration.sql).
   @@map("user_roles")
 }
 
