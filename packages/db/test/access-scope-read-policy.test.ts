@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { prisma } from '../src/index.js'
 import { asUser, createAuthUser } from './rls-harness.js'
 
@@ -10,14 +10,52 @@ import { asUser, createAuthUser } from './rls-harness.js'
  * profile screen needs a director with global `users.read` to read another
  * user's rows on both tables — same shape as `app_users_read_all` /
  * `user_roles_read_all` from Task 5.
+ *
+ * Every row this file creates is tracked and removed in `afterEach` — see
+ * `rls-harness.test.ts`'s convention. `createAuthUser` deliberately does not
+ * clean up after itself; a director/roles.manage row left behind here would
+ * silently inflate every other suite's "how many active holders exist
+ * system-wide" guard checks in the shared dev database.
  */
+const createdAuthUserIds: string[] = []
+const createdStudentIds: string[] = []
+
 async function makeUserWithRole(email: string, roleCode: string) {
   const authId = await createAuthUser(email)
+  createdAuthUserIds.push(authId)
   const user = await prisma.appUser.findFirstOrThrow({ where: { authUserId: authId } })
   const role = await prisma.role.findUniqueOrThrow({ where: { code: roleCode } })
   await prisma.userRole.create({ data: { userId: user.id, roleId: role.id } })
   return { authId, userId: user.id }
 }
+
+afterEach(async () => {
+  while (createdStudentIds.length > 0) {
+    const id = createdStudentIds.pop()
+    if (!id) continue
+    try {
+      await prisma.linkedAccount.deleteMany({ where: { studentId: id } })
+      await prisma.student.deleteMany({ where: { id } })
+    } catch (err) {
+      console.warn(`access-scope-read-policy.test.ts: cleanup failed for student ${id}`, err)
+    }
+  }
+  while (createdAuthUserIds.length > 0) {
+    const authId = createdAuthUserIds.pop()
+    if (!authId) continue
+    try {
+      const user = await prisma.appUser.findFirst({ where: { authUserId: authId } })
+      if (user) {
+        await prisma.permissionGrant.deleteMany({ where: { userId: user.id } })
+        await prisma.userRole.deleteMany({ where: { userId: user.id } })
+      }
+      await prisma.appUser.deleteMany({ where: { authUserId: authId } })
+      await prisma.$executeRaw`delete from auth.users where id = ${authId}::uuid`
+    } catch (err) {
+      console.warn(`access-scope-read-policy.test.ts: cleanup failed for auth user ${authId}`, err)
+    }
+  }
+})
 
 describe('permission_grants_read_all', () => {
   it('lets a user with global users.read scope see another user\'s permission_grants rows', async () => {
@@ -85,6 +123,7 @@ describe('linked_accounts_read_all', () => {
     const student = await prisma.student.create({
       data: { firstName: 'Звʼязок', lastName: 'Тест', bornOn: new Date('2016-01-01') },
     })
+    createdStudentIds.push(student.id)
     const link = await prisma.linkedAccount.create({
       data: { ownerUserId: other.userId, studentId: student.id, linkedBy: director.userId },
     })
@@ -93,9 +132,6 @@ describe('linked_accounts_read_all', () => {
       return tx.$queryRaw<Array<{ id: string }>>`select id from linked_accounts where id = ${link.id}::uuid`
     })
     expect(visible).toHaveLength(1)
-
-    await prisma.linkedAccount.deleteMany({ where: { id: link.id } })
-    await prisma.student.deleteMany({ where: { id: student.id } })
   })
 
   it('hides other linked_accounts rows from a user without users.read, but still shows their own', async () => {
@@ -104,6 +140,7 @@ describe('linked_accounts_read_all', () => {
     const student = await prisma.student.create({
       data: { firstName: 'Звʼязок2', lastName: 'Тест2', bornOn: new Date('2016-01-01') },
     })
+    createdStudentIds.push(student.id)
     const otherLink = await prisma.linkedAccount.create({
       data: { ownerUserId: other.userId, studentId: student.id, linkedBy: other.userId },
     })
@@ -120,9 +157,6 @@ describe('linked_accounts_read_all', () => {
       return tx.$queryRaw<Array<{ id: string }>>`select id from linked_accounts where id = ${ownLink.id}::uuid`
     })
     expect(visibleSelf).toHaveLength(1)
-
-    await prisma.linkedAccount.deleteMany({ where: { studentId: student.id } })
-    await prisma.student.deleteMany({ where: { id: student.id } })
   })
 })
 

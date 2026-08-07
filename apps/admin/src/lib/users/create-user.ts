@@ -1,16 +1,9 @@
-import { z } from 'zod'
 import { prisma } from '@starland/db'
 import { requirePermission, ConflictError, NotFoundError, type EffectivePermissions } from '@starland/domain'
 import { supabaseAdminAuthClient, type AdminAuthClient } from './supabase-admin-client'
+import { CreateUserInput } from './create-user-schema'
 
-export const CreateUserInput = z.object({
-  fullName: z.string().trim().min(1, 'fullName must not be empty'),
-  email: z.string().trim().toLowerCase().email('email must be valid'),
-  roleCode: z.string().trim().min(1, 'roleCode must not be empty'),
-  temporaryPassword: z.string().min(12, 'temporaryPassword must be at least 12 characters'),
-})
-
-export type CreateUserInput = z.infer<typeof CreateUserInput>
+export { CreateUserInput }
 
 /**
  * Чиста логіка без Next.js — саме її покривають тести.

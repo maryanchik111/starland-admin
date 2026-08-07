@@ -53,12 +53,20 @@ afterEach(async () => {
     if (!id) continue
     await prisma.academicYear.deleteMany({ where: { id } })
   }
+  // One failed delete must not abandon cleanup of the rest of the batch —
+  // an aborted loop here is how orphaned test fixtures (including the
+  // 'director' role this file assigns to every actor) accumulate in the
+  // shared dev database.
   while (createdAppUserIds.length > 0) {
     const id = createdAppUserIds.pop()
     if (!id) continue
-    await prisma.permissionGrant.deleteMany({ where: { userId: id } })
-    await prisma.userRole.deleteMany({ where: { userId: id } })
-    await prisma.appUser.deleteMany({ where: { id } })
+    try {
+      await prisma.permissionGrant.deleteMany({ where: { userId: id } })
+      await prisma.userRole.deleteMany({ where: { userId: id } })
+      await prisma.appUser.deleteMany({ where: { id } })
+    } catch (err) {
+      console.warn(`effective-permissions.test.ts: cleanup failed for app_user ${id}`, err)
+    }
   }
 })
 

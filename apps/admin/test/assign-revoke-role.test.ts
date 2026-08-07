@@ -21,12 +21,20 @@ const rolesManagePermissions = new EffectivePermissions([
 ])
 
 afterEach(async () => {
+  // One failed delete must not abandon cleanup of the rest of the batch —
+  // an aborted loop here is exactly how orphaned director/roles.manage test
+  // fixtures accumulate in the shared dev database and silently inflate the
+  // "how many active holders exist system-wide" guard this suite tests.
   while (createdAppUserIds.length > 0) {
     const id = createdAppUserIds.pop()
     if (!id) continue
-    await prisma.auditLog.deleteMany({ where: { entityType: 'user_roles', entityId: { in: await userRoleIdsFor(id) } } })
-    await prisma.userRole.deleteMany({ where: { userId: id } })
-    await prisma.appUser.deleteMany({ where: { id } })
+    try {
+      await prisma.auditLog.deleteMany({ where: { entityType: 'user_roles', entityId: { in: await userRoleIdsFor(id) } } })
+      await prisma.userRole.deleteMany({ where: { userId: id } })
+      await prisma.appUser.deleteMany({ where: { id } })
+    } catch (err) {
+      console.warn(`assign-revoke-role.test.ts: cleanup failed for app_user ${id}`, err)
+    }
   }
 })
 
@@ -163,7 +171,7 @@ describe('revokeRoleWithPermissions', () => {
    * throws to force a rollback — so the real director and every other
    * account this test touches end up completely unchanged.
    */
-  it('refuses to revoke the last active roles.manage holder in the system', async () => {
+  it('refuses to revoke the last active roles.manage holder in the system', { timeout: 20000 }, async () => {
     const actor = await makeUser(`guard-actor-${randomUUID()}@admin-starland.test`)
     const target = await makeUser(`guard-target-${randomUUID()}@admin-starland.test`)
 
@@ -176,23 +184,19 @@ describe('revokeRoleWithPermissions', () => {
           data: { userId: target.appUserId, roleId: directorRole.id, grantedBy: actor.appUserId },
         })
 
-        const otherHolders = await tx.userRole.findMany({
+        // Single updateMany, not a per-row loop: however many other
+        // roles.manage holders currently exist in the shared dev database
+        // (real accounts, other tests' fixtures), one statement clears them
+        // all without N round trips — a per-row loop timed out once fixture
+        // count grew, since each iteration is its own network round trip.
+        await tx.userRole.updateMany({
           where: {
             id: { not: lastHolder.id },
             revokedAt: null,
             role: { rolePermissions: { some: { scopeKind: 'global', permission: { code: 'roles.manage' } } } },
           },
+          data: { revokedAt: new Date(), revokedBy: actor.appUserId },
         })
-        // updateMany, not update: another concurrently-running test file can
-        // legitimately delete its own fixture rows (afterEach hard-deletes
-        // user_roles it created) between the select above and this write —
-        // that's a row that's already gone, not a bug, so it must not throw.
-        for (const holder of otherHolders) {
-          await tx.userRole.updateMany({
-            where: { id: holder.id, revokedAt: null },
-            data: { revokedAt: new Date(), revokedBy: actor.appUserId },
-          })
-        }
 
         await expect(
           revokeRoleTx(tx, rolesManagePermissions, actor, { userId: target.appUserId }, { roleCode: 'director' }),

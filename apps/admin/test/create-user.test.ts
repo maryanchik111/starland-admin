@@ -43,12 +43,19 @@ function fakeAdminAuth(): { client: AdminAuthClient; deletedUserIds: string[] } 
 }
 
 afterEach(async () => {
+  // One failed delete must not abandon cleanup of the rest of the batch —
+  // an aborted loop here is how orphaned test fixtures accumulate in the
+  // shared dev database.
   while (createdAppUserIds.length > 0) {
     const id = createdAppUserIds.pop()
     if (!id) continue
-    await prisma.auditLog.deleteMany({ where: { entityType: 'app_users', entityId: id } })
-    await prisma.userRole.deleteMany({ where: { userId: id } })
-    await prisma.appUser.deleteMany({ where: { id } })
+    try {
+      await prisma.auditLog.deleteMany({ where: { entityType: 'app_users', entityId: id } })
+      await prisma.userRole.deleteMany({ where: { userId: id } })
+      await prisma.appUser.deleteMany({ where: { id } })
+    } catch (err) {
+      console.warn(`create-user.test.ts: cleanup failed for app_user ${id}`, err)
+    }
   }
 })
 
