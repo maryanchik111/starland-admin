@@ -1,11 +1,17 @@
 import Link from 'next/link'
 
+const PATH_BY_KIND: Record<'student' | 'staff' | 'user', string> = {
+  student: 'students',
+  staff: 'staff',
+  user: 'users',
+}
+
 export function PersonLink({
   id, name, kind, photoUrl,
 }: {
   id: string
   name: string
-  kind: 'student' | 'staff'
+  kind: 'student' | 'staff' | 'user'
   /** Підписаний URL із коротким TTL. Відсутній — рендеримо ініціали. */
   photoUrl?: string | undefined
 }) {
@@ -13,7 +19,7 @@ export function PersonLink({
 
   return (
     <Link className="inline-flex items-center gap-2 underline underline-offset-2"
-          href={`/${kind === 'student' ? 'students' : 'staff'}/${id}`}>
+          href={`/${PATH_BY_KIND[kind]}/${id}`}>
       {photoUrl ? (
         <img src={photoUrl} alt="" className="h-6 w-6 rounded-full object-cover" />
       ) : (

@@ -4,16 +4,12 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { uk } from '@starland/i18n'
 import { Badge } from '@/components/ui/badge'
 import { DataTableColumnHeader } from '@/components/data-table/column-header'
+import { PersonLink } from '@/components/person-link'
 
 /**
  * One rendered row of the users list. Computed server-side in `page.tsx`
  * (name/email/roles/status already resolved through the RLS-scoped query)
  * — this file only renders what it is given.
- *
- * `PersonLink` currently only supports `kind: 'student' | 'staff'` (see
- * `apps/admin/src/components/person-link.tsx`) — there is no `/users/[id]`
- * profile page yet (that's Task 8), so the name renders as plain text for
- * now rather than extending `PersonLink` outside this task's scope.
  */
 export type UserRow = {
   id: string
@@ -29,7 +25,7 @@ export const columns: ColumnDef<UserRow>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title={uk.users.fullName} />
     ),
-    cell: ({ row }) => <span>{row.original.fullName}</span>,
+    cell: ({ row }) => <PersonLink id={row.original.id} name={row.original.fullName} kind="user" />,
   },
   {
     accessorKey: 'email',

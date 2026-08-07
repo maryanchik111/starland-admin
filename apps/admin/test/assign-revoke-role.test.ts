@@ -183,8 +183,15 @@ describe('revokeRoleWithPermissions', () => {
             role: { rolePermissions: { some: { scopeKind: 'global', permission: { code: 'roles.manage' } } } },
           },
         })
+        // updateMany, not update: another concurrently-running test file can
+        // legitimately delete its own fixture rows (afterEach hard-deletes
+        // user_roles it created) between the select above and this write —
+        // that's a row that's already gone, not a bug, so it must not throw.
         for (const holder of otherHolders) {
-          await tx.userRole.update({ where: { id: holder.id }, data: { revokedAt: new Date(), revokedBy: actor.appUserId } })
+          await tx.userRole.updateMany({
+            where: { id: holder.id, revokedAt: null },
+            data: { revokedAt: new Date(), revokedBy: actor.appUserId },
+          })
         }
 
         await expect(
