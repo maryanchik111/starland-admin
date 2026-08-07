@@ -5,5 +5,5 @@ export {
   type ScopeRef,
   type ScopeType,
 } from './permissions'
-export { ForbiddenError } from './errors'
+export { ForbiddenError, ConflictError, NotFoundError } from './errors'
 export { loadEffectivePermissions } from './permissions-loader'

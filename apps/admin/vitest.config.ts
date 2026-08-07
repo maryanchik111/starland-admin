@@ -8,6 +8,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // Next.js swaps `server-only` for a no-op in server bundles; vitest
+      // runs outside that pipeline, so modules importing it need the same
+      // substitution here or the import throws unconditionally.
+      'server-only': path.resolve(__dirname, './test/stubs/server-only.js'),
     },
   },
   test: {

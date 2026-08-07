@@ -1,8 +1,10 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { withUserContext } from '@starland/db'
 import { uk } from '@starland/i18n'
 import { requireSession } from '@/lib/session'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { UsersTable } from './users-table'
 import type { UserRow } from './columns'
 
@@ -70,8 +72,13 @@ export default async function UsersPage({
   return (
     <main className='p-6'>
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>{uk.users.title}</CardTitle>
+          {session.permissions.can('users.write') && (
+            <Button asChild>
+              <Link href="/users/new">{uk.users.newUser}</Link>
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           <UsersTable
