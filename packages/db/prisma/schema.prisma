@@ -327,6 +327,7 @@ model Guardianship {
   isLegalRepresentative Boolean @default(false) @map("is_legal_representative")
   canPickUp            Boolean  @default(true) @map("can_pick_up")
   receivesNotifications Boolean @default(true) @map("receives_notifications")
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz
 

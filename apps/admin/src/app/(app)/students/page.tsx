@@ -1,7 +1,9 @@
+import Link from 'next/link'
 import { withUserContext } from '@starland/db'
 import { uk } from '@starland/i18n'
 import { requireSession } from '@/lib/session'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { PageHeader } from '@/components/layout/page-header'
+import { Button } from '@/components/ui/button'
 import { StudentsTable } from './students-table'
 import type { StudentRow } from './columns'
 
@@ -64,21 +66,24 @@ export default async function StudentsPage({
   })
 
   return (
-    <main className='p-6'>
-      <Card>
-        <CardHeader>
-          <CardTitle>{uk.students.title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <StudentsTable
-            data={rows}
-            page={page}
-            pageSize={pageSize}
-            totalCount={totalCount}
-            searchParams={params}
-          />
-        </CardContent>
-      </Card>
-    </main>
+    <div className='flex flex-col gap-6'>
+      <PageHeader
+        title={uk.students.title}
+        actions={
+          session.permissions.can('students.write') && (
+            <Button asChild>
+              <Link href="/students/new">{uk.students.newStudent}</Link>
+            </Button>
+          )
+        }
+      />
+      <StudentsTable
+        data={rows}
+        page={page}
+        pageSize={pageSize}
+        totalCount={totalCount}
+        searchParams={params}
+      />
+    </div>
   )
 }

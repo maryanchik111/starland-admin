@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import type { z } from 'zod'
 import { toast } from 'sonner'
 import { uk } from '@starland/i18n'
-import { UpdateStudentInput as UpdateStudentSchema } from '@/lib/students/update-student'
+import { CreateStudentInput as CreateStudentSchema } from '@/lib/students/create-student-schema'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -23,70 +23,47 @@ import {
 
 /**
  * The HTML `<input type="date">` this form uses always produces a string,
- * but `UpdateStudentInput.bornOn` is `z.coerce.date()`, whose output type is
- * `Date` — this local type (rather than `z.input<...>`) is what the form
- * actually deals with; `formSchema` below is cast to match it.
+ * but `CreateStudentInput.bornOn` is `z.coerce.date()`, whose output type is
+ * `Date` — cast the resolver rather than relying on `z.input<...>` inference
+ * (react-hook-form's `Resolver` type wants input and output to already
+ * agree, and `z.coerce.date()`'s input type is `unknown`, not `string`).
  */
-type EditStudentFormValues = {
-  firstName?: string
-  lastName?: string
-  bornOn?: string
+type CreateStudentFormValues = {
+  firstName: string
+  lastName: string
+  middleName?: string
+  bornOn: string
   livingAddress?: string
   criticalNote?: string
 }
+type SubmitResult = { ok: true; id: string } | { ok: false; message: string }
 
-type SubmitResult = { ok: true } | { ok: false; message: string }
-
-/**
- * Empty strings mean "field left blank in the UI", not "clear this value" —
- * `updateStudentWithPermissions` treats `undefined` as "don't touch this
- * column" (see apps/admin/src/lib/students/update-student.ts), so an empty
- * string must become `undefined` before it reaches `UpdateStudentInput`,
- * which requires a non-empty string (or a valid date) when the key is
- * present at all. This preprocesses input shape only — the validation rules
- * themselves stay solely in `UpdateStudentInput`, imported and reused as-is.
- */
-const formSchema = z.preprocess((value) => {
-  if (typeof value !== 'object' || value === null) return value
-  const obj = value as Record<string, unknown>
-  return {
-    firstName: obj.firstName === '' ? undefined : obj.firstName,
-    lastName: obj.lastName === '' ? undefined : obj.lastName,
-    bornOn: obj.bornOn === '' ? undefined : obj.bornOn,
-    livingAddress: obj.livingAddress === '' ? undefined : obj.livingAddress,
-    criticalNote: obj.criticalNote === '' ? undefined : obj.criticalNote,
-  }
-}, UpdateStudentSchema) as unknown as z.ZodType<EditStudentFormValues, z.ZodTypeDef, EditStudentFormValues>
-
-export function EditStudentForm({
-  studentId,
-  defaultValues,
+export function CreateStudentForm({
   submitAction,
 }: {
-  studentId: string
-  defaultValues: EditStudentFormValues
   submitAction: (raw: unknown) => Promise<SubmitResult>
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
-  const form = useForm<EditStudentFormValues>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<CreateStudentFormValues>({
+    resolver: zodResolver(CreateStudentSchema as unknown as z.ZodType<CreateStudentFormValues>),
     defaultValues: {
-      firstName: defaultValues.firstName ?? '',
-      lastName: defaultValues.lastName ?? '',
-      bornOn: defaultValues.bornOn ?? '',
-      livingAddress: defaultValues.livingAddress ?? '',
-      criticalNote: defaultValues.criticalNote ?? '',
+      firstName: '',
+      lastName: '',
+      middleName: '',
+      bornOn: '',
+      livingAddress: '',
+      criticalNote: '',
     },
   })
 
-  function onSubmit(values: EditStudentFormValues): void {
+  function onSubmit(values: CreateStudentFormValues): void {
     startTransition(async () => {
       const result = await submitAction(values)
       if (result.ok) {
-        toast.success(uk.students.updateSuccess)
-        router.push(`/students/${studentId}`)
+        toast.success(uk.students.createSuccess)
+        router.push(`/students/${result.id}`)
         return
       }
       form.setError('root', { message: result.message })
@@ -104,7 +81,7 @@ export function EditStudentForm({
             <FormItem>
               <FormLabel>{uk.students.lastName}</FormLabel>
               <FormControl>
-                <Input {...field} value={typeof field.value === 'string' ? field.value : ''} />
+                <Input {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -117,7 +94,20 @@ export function EditStudentForm({
             <FormItem>
               <FormLabel>{uk.students.firstName}</FormLabel>
               <FormControl>
-                <Input {...field} value={typeof field.value === 'string' ? field.value : ''} />
+                <Input {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="middleName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{uk.students.middleName}</FormLabel>
+              <FormControl>
+                <Input {...field} value={field.value ?? ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -143,7 +133,7 @@ export function EditStudentForm({
             <FormItem>
               <FormLabel>{uk.students.address}</FormLabel>
               <FormControl>
-                <Input {...field} value={typeof field.value === 'string' ? field.value : ''} />
+                <Input {...field} value={field.value ?? ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -156,7 +146,7 @@ export function EditStudentForm({
             <FormItem>
               <FormLabel>{uk.students.criticalNote}</FormLabel>
               <FormControl>
-                <Textarea {...field} value={typeof field.value === 'string' ? field.value : ''} />
+                <Textarea {...field} value={field.value ?? ''} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -164,10 +154,10 @@ export function EditStudentForm({
         />
         <div className="mt-2 flex gap-3">
           <Button type="submit" disabled={isPending}>
-            {uk.common.save}
+            {uk.students.create}
           </Button>
           <Button variant="outline" asChild>
-            <Link href={`/students/${studentId}`}>{uk.common.cancel}</Link>
+            <Link href="/students">{uk.common.cancel}</Link>
           </Button>
         </div>
       </form>

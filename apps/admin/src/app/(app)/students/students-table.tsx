@@ -52,7 +52,7 @@ export function StudentsTable({
   return (
     <div className='space-y-4'>
       <DataTableToolbar searchPlaceholder={uk.common.search} />
-      <div className='rounded-md border'>
+      <div className='overflow-hidden rounded-lg border bg-card shadow-sm'>
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

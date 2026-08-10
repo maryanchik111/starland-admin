@@ -3,6 +3,9 @@ import { prisma } from '@starland/db'
 import { requirePermission, type EffectivePermissions } from '@starland/domain'
 
 export const UpdateStudentInput = z.object({
+  firstName: z.string().trim().min(1, 'firstName must not be empty').optional(),
+  lastName: z.string().trim().min(1, 'lastName must not be empty').optional(),
+  bornOn: z.coerce.date().optional(),
   livingAddress: z.string().trim().min(1, 'livingAddress must not be empty').optional(),
   criticalNote: z.string().trim().max(500).optional(),
 })

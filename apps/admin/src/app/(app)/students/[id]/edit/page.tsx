@@ -46,7 +46,7 @@ export default async function EditStudentPage({
   }
 
   return (
-    <main className="p-6">
+    <div>
       <Card className="max-w-md">
         <CardHeader>
           <CardTitle>
@@ -57,6 +57,9 @@ export default async function EditStudentPage({
           <EditStudentForm
             studentId={id}
             defaultValues={{
+              firstName: student.firstName,
+              lastName: student.lastName,
+              bornOn: student.bornOn.toISOString().slice(0, 10),
               livingAddress: student.livingAddress ?? undefined,
               criticalNote: student.criticalNote ?? undefined,
             }}
@@ -64,6 +67,6 @@ export default async function EditStudentPage({
           />
         </CardContent>
       </Card>
-    </main>
+    </div>
   )
 }
