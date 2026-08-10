@@ -5,13 +5,22 @@ import { prisma, withUserContext } from '@starland/db'
 import { ConflictError } from '@starland/domain'
 import { uk } from '@starland/i18n'
 import { requireSession } from '@/lib/session'
-import { assignClass, linkGuardian, searchGuardians, unlinkGuardian } from '@/app/(app)/students/actions'
+import {
+  assignClass,
+  linkGuardian,
+  searchGuardians,
+  unlinkGuardian,
+  updateStudentHealth,
+  updateStudentHealthNote,
+} from '@/app/(app)/students/actions'
+import { getStudentHealthWithPermissions, getStudentHealthNoteWithPermissions } from '@/lib/students/health'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { AlertTriangle } from 'lucide-react'
 import { ClassAssign } from './class-assign'
 import { GuardiansSection } from './guardians-section'
+import { HealthSection } from './health-section'
 
 export default async function StudentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -44,6 +53,22 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   const canEdit = classId
     ? session.permissions.can('students.write', { type: 'class', id: classId })
     : false
+
+  // §6: no permission -> the section does not render at all, not "renders
+  // and fails". `health.read` and `health_notes.read` are two independent
+  // gates (CLAUDE.md §3), so the note is fetched only when its own,
+  // stricter permission is present -- never as a side effect of
+  // `health.read`.
+  const canReadHealth = session.permissions.can('health.read')
+  const canReadHealthNote = session.permissions.can('health_notes.read')
+  const canWriteHealth = session.permissions.can('health.write')
+
+  const health = canReadHealth
+    ? await getStudentHealthWithPermissions(session.permissions, { authUserId: session.authUserId }, id)
+    : null
+  const healthNote = canReadHealthNote
+    ? await getStudentHealthNoteWithPermissions(session.permissions, { authUserId: session.authUserId }, id)
+    : null
 
   // Classes are a small reference-like list (not personal data), so this
   // reads through the privileged connection rather than requiring the
@@ -96,6 +121,34 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
       return { ok: true }
     } catch {
       return { ok: false, message: uk.students.unlinkError }
+    }
+  }
+
+  async function submitUpdateHealth(raw: unknown): Promise<{ ok: true } | { ok: false; message: string }> {
+    'use server'
+
+    try {
+      await updateStudentHealth(id, raw)
+      return { ok: true }
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return { ok: false, message: err.issues[0]?.message ?? uk.students.health.updateError }
+      }
+      return { ok: false, message: uk.students.health.updateError }
+    }
+  }
+
+  async function submitUpdateHealthNote(raw: unknown): Promise<{ ok: true } | { ok: false; message: string }> {
+    'use server'
+
+    try {
+      await updateStudentHealthNote(id, raw)
+      return { ok: true }
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return { ok: false, message: err.issues[0]?.message ?? uk.students.health.noteUpdateError }
+      }
+      return { ok: false, message: uk.students.health.noteUpdateError }
     }
   }
 
@@ -181,6 +234,24 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
               <p className="text-sm text-muted-foreground">{uk.students.noMeasurements}</p>
             )}
           </section>
+
+          {/* Sensitive medical data: a clearly separate, distinctly-gated
+              section (CLAUDE.md §0/§3), not folded into Profile. Absent
+              entirely (not shown-and-empty) for a viewer without
+              `health.read` -- see `canReadHealth` above. */}
+          {canReadHealth && (
+            <section className="py-4 last:pb-4">
+              <h2 className="mb-3 text-sm font-semibold text-foreground">{uk.students.health.title}</h2>
+              <HealthSection
+                health={health}
+                canWrite={canWriteHealth}
+                note={healthNote}
+                canReadNote={canReadHealthNote}
+                updateHealthAction={submitUpdateHealth}
+                updateNoteAction={submitUpdateHealthNote}
+              />
+            </section>
+          )}
         </CardContent>
       </Card>
     </div>
