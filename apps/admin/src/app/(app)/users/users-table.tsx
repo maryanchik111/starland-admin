@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table'
 import { DataTableToolbar } from '@/components/data-table/toolbar'
 import { DataTablePagination } from '@/components/data-table/pagination'
-import { columns, type UserRow } from './columns'
+import { buildColumns, type UserRow } from './columns'
 
 type UsersTableProps = {
   data: UserRow[]
@@ -20,6 +20,7 @@ type UsersTableProps = {
   pageSize: number
   totalCount: number
   searchParams: Record<string, string | string[] | undefined>
+  showStaffContact: boolean
 }
 
 export function UsersTable({
@@ -28,7 +29,9 @@ export function UsersTable({
   pageSize,
   totalCount,
   searchParams,
+  showStaffContact,
 }: UsersTableProps) {
+  const columns = buildColumns({ showStaffContact })
   const table = useReactTable({
     data,
     columns,
