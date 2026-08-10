@@ -1,16 +1,12 @@
 'use client'
 
+import Link from 'next/link'
 import { type ColumnDef } from '@tanstack/react-table'
 import { uk } from '@starland/i18n'
 import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { DataTableColumnHeader } from '@/components/data-table/column-header'
-import { PersonLink } from '@/components/person-link'
 
-/**
- * One rendered row of the users list. Computed server-side in `page.tsx`
- * (name/email/roles/status already resolved through the RLS-scoped query)
- * — this file only renders what it is given.
- */
 export type UserRow = {
   id: string
   fullName: string
@@ -19,20 +15,30 @@ export type UserRow = {
   isActive: boolean
 }
 
+function getInitials(name: string) {
+  return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+}
+
 export const columns: ColumnDef<UserRow>[] = [
   {
     accessorKey: 'fullName',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title={uk.users.fullName} />
-    ),
-    cell: ({ row }) => <PersonLink id={row.original.id} name={row.original.fullName} kind="user" />,
-  },
-  {
-    accessorKey: 'email',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title={uk.users.email} />
-    ),
-    cell: ({ row }) => <span className='text-muted-foreground'>{row.original.email}</span>,
+    header: () => <DataTableColumnHeader title={uk.users.fullName} sortKey="fullName" />,
+    cell: ({ row }) => {
+      const user = row.original
+      return (
+        <Link href={`/users/${user.id}`} className="flex items-center gap-3 hover:text-primary">
+          <Avatar className="h-9 w-9 rounded-md bg-indigo-100 text-indigo-700">
+            <AvatarFallback className="rounded-md bg-indigo-100 text-indigo-700 font-medium">
+              {getInitials(user.fullName)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col">
+            <span className="font-semibold text-foreground text-sm">{user.fullName}</span>
+            <span className="text-xs text-muted-foreground mt-0.5">{user.email}</span>
+          </div>
+        </Link>
+      )
+    },
   },
   {
     id: 'roles',

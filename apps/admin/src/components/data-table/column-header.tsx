@@ -1,8 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { ArrowDown, ArrowUp, ChevronsUpDown, EyeOff } from 'lucide-react'
-import { type Column } from '@tanstack/react-table'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react'
 import { uk } from '@starland/i18n'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -13,26 +13,48 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { nextSortHref, type SortDirection } from './query-string'
 
-type DataTableColumnHeaderProps<TData, TValue> =
-  React.HTMLAttributes<HTMLDivElement> & {
-    column: Column<TData, TValue>
-    title: string
-  }
+type DataTableColumnHeaderProps = React.HTMLAttributes<HTMLDivElement> & {
+  title: string
+  /**
+   * Query-param value this column sorts by (`?sort=<sortKey>`). Omit for
+   * columns that have nothing to order the query by (e.g. derived/joined
+   * columns like a list of role names).
+   */
+  sortKey?: string
+}
 
 /**
- * Sortable column header for a client-side `@tanstack/react-table` instance
- * rendering an already-loaded page of rows. Pagination/filtering itself is
- * server-driven (see `pagination.tsx` / `toolbar.tsx`) — this only toggles
- * in-memory sort state for the current page.
+ * Sortable column header driven entirely by URL params (`sort`/`dir`) — the
+ * server component reads them and applies `orderBy` across the whole result
+ * set, not just the page already loaded. Clicking an option navigates, the
+ * same way `DataTablePagination` links do; there is no client-side sort
+ * state to keep in sync.
  */
-export function DataTableColumnHeader<TData, TValue>({
-  column,
+export function DataTableColumnHeader({
   title,
+  sortKey,
   className,
-}: DataTableColumnHeaderProps<TData, TValue>) {
-  if (!column.getCanSort()) {
+}: DataTableColumnHeaderProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  if (!sortKey) {
     return <div className={cn(className)}>{title}</div>
+  }
+
+  const params = Object.fromEntries(searchParams.entries())
+  const activeDirection: SortDirection | undefined =
+    searchParams.get('sort') === sortKey
+      ? searchParams.get('dir') === 'desc'
+        ? 'desc'
+        : 'asc'
+      : undefined
+
+  function go(direction: SortDirection | undefined) {
+    router.push(nextSortHref(pathname, params, sortKey!, direction))
   }
 
   return (
@@ -45,9 +67,9 @@ export function DataTableColumnHeader<TData, TValue>({
             className='h-8 data-[state=open]:bg-accent'
           >
             <span>{title}</span>
-            {column.getIsSorted() === 'desc' ? (
+            {activeDirection === 'desc' ? (
               <ArrowDown className='ms-2 h-4 w-4' />
-            ) : column.getIsSorted() === 'asc' ? (
+            ) : activeDirection === 'asc' ? (
               <ArrowUp className='ms-2 h-4 w-4' />
             ) : (
               <ChevronsUpDown className='ms-2 h-4 w-4' />
@@ -55,20 +77,19 @@ export function DataTableColumnHeader<TData, TValue>({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align='start'>
-          <DropdownMenuItem onClick={() => column.toggleSorting(false)}>
+          <DropdownMenuItem onClick={() => go('asc')}>
             <ArrowUp className='size-3.5 text-muted-foreground/70' />
             {uk.dataTable.sortAsc}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => column.toggleSorting(true)}>
+          <DropdownMenuItem onClick={() => go('desc')}>
             <ArrowDown className='size-3.5 text-muted-foreground/70' />
             {uk.dataTable.sortDesc}
           </DropdownMenuItem>
-          {column.getCanHide() && (
+          {activeDirection && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => column.toggleVisibility(false)}>
-                <EyeOff className='size-3.5 text-muted-foreground/70' />
-                {uk.dataTable.hideColumn}
+              <DropdownMenuItem onClick={() => go(undefined)}>
+                {uk.dataTable.reset}
               </DropdownMenuItem>
             </>
           )}

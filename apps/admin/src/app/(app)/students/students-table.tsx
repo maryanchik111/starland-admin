@@ -1,11 +1,6 @@
 'use client'
 
-import {
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from '@tanstack/react-table'
+import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table'
 import { uk } from '@starland/i18n'
 import {
   Table,
@@ -27,14 +22,6 @@ type StudentsTableProps = {
   searchParams: Record<string, string | string[] | undefined>
 }
 
-/**
- * Thin client-side rendering shell: `data` is already the fetched page
- * (server-side `skip`/`take` + RLS happened in `page.tsx`), so
- * `@tanstack/react-table` here is only used for column rendering and
- * in-memory sort of the already-loaded rows — not for fetching or
- * pagination, which stay server-driven via `DataTableToolbar`/
- * `DataTablePagination`.
- */
 export function StudentsTable({
   data,
   page,
@@ -46,19 +33,18 @@ export function StudentsTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
   })
 
   return (
-    <div className='space-y-4'>
+    <div className="space-y-4">
       <DataTableToolbar searchPlaceholder={uk.common.search} />
-      <div className='overflow-hidden rounded-lg border bg-card shadow-sm'>
+      <div className='overflow-hidden border-t'>
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead key={header.id} className="h-10 text-xs font-medium text-muted-foreground">
                     {header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}
@@ -70,9 +56,9 @@ export function StudentsTable({
           <TableBody>
             {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow key={row.id} className="border-b border-border/50 hover:bg-muted/30">
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell key={cell.id} className="py-3">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}

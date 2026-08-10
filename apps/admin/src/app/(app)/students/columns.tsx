@@ -2,25 +2,13 @@
 
 import Link from 'next/link'
 import { type ColumnDef } from '@tanstack/react-table'
-import { MoreHorizontal } from 'lucide-react'
+import { Eye, Pencil } from 'lucide-react'
 import { uk } from '@starland/i18n'
-import { PersonLink } from '@/components/person-link'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DataTableColumnHeader } from '@/components/data-table/column-header'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 
-/**
- * One rendered row of the students list. Computed server-side in
- * `page.tsx` (name/class already resolved through the RLS-scoped query,
- * `canEdit` already resolved through `session.permissions.can(...)`) —
- * this file only renders what it is given, it never re-derives access.
- */
 export type StudentRow = {
   id: string
   fullName: string
@@ -28,21 +16,31 @@ export type StudentRow = {
   canEdit: boolean
 }
 
+function getInitials(name: string) {
+  return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+}
+
 export const columns: ColumnDef<StudentRow>[] = [
   {
     accessorKey: 'fullName',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title={uk.students.fullName} />
-    ),
-    cell: ({ row }) => (
-      <PersonLink id={row.original.id} kind='student' name={row.original.fullName} />
-    ),
+    header: () => <DataTableColumnHeader title={uk.students.fullName} sortKey="fullName" />,
+    cell: ({ row }) => {
+      const student = row.original
+      return (
+        <Link href={`/students/${student.id}`} className="flex items-center gap-3 hover:text-primary">
+          <Avatar className="h-9 w-9 rounded-md bg-orange-100 text-orange-700">
+            <AvatarFallback className="rounded-md bg-orange-100 text-orange-700 font-medium">
+              {getInitials(student.fullName)}
+            </AvatarFallback>
+          </Avatar>
+          <span className="font-semibold text-foreground text-sm">{student.fullName}</span>
+        </Link>
+      )
+    },
   },
   {
     accessorKey: 'className',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title={uk.students.class} />
-    ),
+    header: () => <DataTableColumnHeader title={uk.students.class} />,
     cell: ({ row }) =>
       row.original.className ? (
         <Badge variant='secondary'>{row.original.className}</Badge>
@@ -52,26 +50,22 @@ export const columns: ColumnDef<StudentRow>[] = [
   },
   {
     id: 'actions',
-    header: uk.students.actions,
+    header: () => <div className="text-right">{uk.students.actions}</div>,
     cell: ({ row }) => (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant='ghost' className='h-8 w-8 p-0'>
-            <span className='sr-only'>{uk.students.openMenu}</span>
-            <MoreHorizontal className='h-4 w-4' />
+      <div className="flex items-center justify-end gap-0.5 text-muted-foreground">
+        <Button variant="ghost" size="icon" asChild className="size-8 hover:text-foreground" title={uk.students.view ?? 'Переглянути'}>
+          <Link href={`/students/${row.original.id}`}>
+            <Eye className="size-4" />
+          </Link>
+        </Button>
+        {row.original.canEdit && (
+          <Button variant="ghost" size="icon" asChild className="size-8 hover:text-foreground" title={uk.common.edit ?? 'Редагувати'}>
+            <Link href={`/students/${row.original.id}/edit`}>
+              <Pencil className="size-4" />
+            </Link>
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align='end'>
-          <DropdownMenuItem asChild>
-            <Link href={`/students/${row.original.id}`}>{uk.students.view}</Link>
-          </DropdownMenuItem>
-          {row.original.canEdit && (
-            <DropdownMenuItem asChild>
-              <Link href={`/students/${row.original.id}/edit`}>{uk.common.edit}</Link>
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+        )}
+      </div>
     ),
   },
 ]

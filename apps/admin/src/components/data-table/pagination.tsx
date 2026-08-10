@@ -8,6 +8,7 @@ import {
 import { uk } from '@starland/i18n'
 import { cn } from '@/lib/utils'
 import { buttonVariants } from '@/components/ui/button'
+import { buildHref } from './query-string'
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 30, 40, 50]
 
@@ -22,27 +23,6 @@ type DataTablePaginationProps = {
   searchParams?: Record<string, string | string[] | undefined>
   pageSizeOptions?: number[]
   className?: string
-}
-
-function buildHref(
-  basePath: string,
-  searchParams: Record<string, string | string[] | undefined> | undefined,
-  overrides: Record<string, string | number>
-) {
-  const params = new URLSearchParams()
-  for (const [key, value] of Object.entries(searchParams ?? {})) {
-    if (value === undefined) continue
-    if (Array.isArray(value)) {
-      for (const v of value) params.append(key, v)
-    } else {
-      params.set(key, value)
-    }
-  }
-  for (const [key, value] of Object.entries(overrides)) {
-    params.set(key, String(value))
-  }
-  const query = params.toString()
-  return query ? `${basePath}?${query}` : basePath
 }
 
 /**
