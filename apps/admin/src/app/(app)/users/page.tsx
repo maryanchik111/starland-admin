@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { Plus } from 'lucide-react'
 import { withUserContext } from '@starland/db'
 import { uk } from '@starland/i18n'
 import { requireSession } from '@/lib/session'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
 import { UsersTable } from './users-table'
 import type { UserRow } from './columns'
@@ -16,10 +17,6 @@ export default async function UsersPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const session = await requireSession()
-  // Direct-URL guard: the nav item is already hidden without `users.read`,
-  // but a permission check belongs on the page too, not only in the nav —
-  // an element without permission never renders, it does not rely on the
-  // caller not knowing the URL.
   if (!session.permissions.can('users.read')) redirect('/')
 
   const params = await searchParams
@@ -27,10 +24,6 @@ export default async function UsersPage({
   const page = Math.max(1, Number(params.page) || 1)
   const pageSize = Math.max(1, Number(params.pageSize) || DEFAULT_PAGE_SIZE)
 
-  // Query goes through withUserContext so RLS actually applies — visibility
-  // of every row here depends on the `app_users_read_all` / `user_roles_read_all`
-  // policies added alongside this page (see
-  // packages/db/prisma/migrations/20260807120000_users_read_policy).
   const { users, rolesByUserId, totalCount } = await withUserContext(session.authUserId, async (tx) => {
     const where = q
       ? { deletedAt: null, OR: [{ fullName: { contains: q, mode: 'insensitive' as const } },
@@ -69,27 +62,27 @@ export default async function UsersPage({
     isActive: u.isActive,
   }))
 
+  const headerActions = session.permissions.can('users.write') && (
+    <Button asChild size="sm" className="gap-1 bg-indigo-600 hover:bg-indigo-700 text-white">
+      <Link href="/users/new">
+        <Plus className="size-4" /> {uk.users.newUser}
+      </Link>
+    </Button>
+  )
+
   return (
-    <main className='p-6'>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>{uk.users.title}</CardTitle>
-          {session.permissions.can('users.write') && (
-            <Button asChild>
-              <Link href="/users/new">{uk.users.newUser}</Link>
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent>
-          <UsersTable
-            data={rows}
-            page={page}
-            pageSize={pageSize}
-            totalCount={totalCount}
-            searchParams={params}
-          />
-        </CardContent>
-      </Card>
-    </main>
+    <div className='flex flex-col gap-6'>
+      <PageHeader
+        title={uk.users.title}
+        actions={headerActions}
+      />
+      <UsersTable
+        data={rows}
+        page={page}
+        pageSize={pageSize}
+        totalCount={totalCount}
+        searchParams={params}
+      />
+    </div>
   )
 }
