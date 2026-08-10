@@ -1,0 +1,11 @@
+-- 20260801131500_health_key_revoke_execute revoked EXECUTE on health_key()
+-- from PUBLIC. `20260807122338_health_key_vault`'s `create or replace
+-- function health_key()` did not re-issue that revoke on the assumption
+-- that CREATE OR REPLACE preserves an existing function's ACL — verified
+-- against this database that the assumption did not hold here:
+-- `authenticated` and `anon` ended up with a direct EXECUTE grant on
+-- health_key() again (Supabase's own default-privileges machinery for
+-- schema `public`, most likely), reopening the exact direct-call path
+-- 20260801131500 closed. Re-revoke explicitly rather than trust ACL
+-- preservation across a replace.
+revoke execute on function health_key() from public, authenticated, anon;

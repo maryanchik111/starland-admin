@@ -41,7 +41,13 @@ jobs:
       - uses: supabase/setup-cli@v1
         with: { version: latest }
       - run: supabase start
-      - run: psql "$DATABASE_URL" -c "alter database postgres set app.health_key = 'ci-key'"
+      # ADR 0003: `health_key()` reads from Supabase Vault, not a database
+      # GUC — hosted Supabase blocks `ALTER DATABASE/ROLE ... SET` for
+      # custom parameters even for the project owner, so the previous
+      # `alter database postgres set app.health_key = ...` here worked only
+      # because local `supabase start`'s `postgres` is a true superuser; it
+      # no longer matches how the function actually resolves the key.
+      - run: psql "$DATABASE_URL" -c "select vault.create_secret('ci-key', 'app_health_key', 'CI dev encryption key')"
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
       - run: pnpm --filter @starland/db exec prisma migrate deploy
