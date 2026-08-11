@@ -1,3 +1,4 @@
+import 'server-only'
 import { prisma } from '@starland/db'
 import { EffectivePermissions, type EffectiveScope, type ScopeType } from './permissions'
 

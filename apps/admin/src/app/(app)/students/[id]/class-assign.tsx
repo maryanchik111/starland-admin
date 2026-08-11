@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { uk } from '@starland/i18n'
+import { usePersonModal } from '@/components/person-modal-provider'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -35,7 +35,7 @@ export function ClassAssign({
   availableClasses: { id: string; name: string }[]
   assignAction: (classId: string) => Promise<ActionResult>
 }) {
-  const router = useRouter()
+  const { refresh } = usePersonModal()
   const [isPending, startTransition] = useTransition()
   const [selectedClassId, setSelectedClassId] = useState('')
   const [open, setOpen] = useState(false)
@@ -50,7 +50,7 @@ export function ClassAssign({
         toast.success(uk.students.assignClassSuccess)
         setSelectedClassId('')
         setOpen(false)
-        router.refresh()
+        refresh()
         return
       }
       toast.error(result.message)

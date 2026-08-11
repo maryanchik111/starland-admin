@@ -13,6 +13,7 @@ export const CreateStudentInput = z.object({
   bornOn: z.coerce.date(),
   livingAddress: z.string().trim().min(1).optional(),
   criticalNote: z.string().trim().max(500).optional(),
+  parentalConsentGivenAt: z.coerce.date().optional(),
 })
 
 export type CreateStudentInput = z.infer<typeof CreateStudentInput>

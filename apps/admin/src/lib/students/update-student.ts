@@ -1,16 +1,8 @@
-import { z } from 'zod'
 import { prisma } from '@starland/db'
 import { requirePermission, type EffectivePermissions } from '@starland/domain'
+import { UpdateStudentInput } from './update-student-schema'
 
-export const UpdateStudentInput = z.object({
-  firstName: z.string().trim().min(1, 'firstName must not be empty').optional(),
-  lastName: z.string().trim().min(1, 'lastName must not be empty').optional(),
-  bornOn: z.coerce.date().optional(),
-  livingAddress: z.string().trim().min(1, 'livingAddress must not be empty').optional(),
-  criticalNote: z.string().trim().max(500).optional(),
-})
-
-export type UpdateStudentInput = z.infer<typeof UpdateStudentInput>
+export { UpdateStudentInput }
 
 /** Чиста логіка без Next.js — саме її покривають тести. */
 export async function updateStudentWithPermissions(
@@ -43,6 +35,24 @@ export async function updateStudentWithPermissions(
       sub: actor.authUserId,
       role: 'authenticated',
     })}, true)`
-    await tx.student.update({ where: { id: student.id }, data: input })
+    // Same rule as createStudentWithPermissions: `parentalConsentEnteredBy`
+    // is never accepted from the request body (not in UpdateStudentInput at
+    // all) — it's the acting director/staff member, resolved from their own
+    // session, not a client-supplied value. Only reassigned when the
+    // consent date actually changes — the inline edit form always resends
+    // every field, so a save that only touches e.g. the address must not
+    // silently overwrite who recorded the consent.
+    let parentalConsentEnteredBy: string | undefined
+    if (input.parentalConsentGivenAt) {
+      const existing = await tx.student.findUniqueOrThrow({
+        where: { id: student.id },
+        select: { parentalConsentGivenAt: true },
+      })
+      const changed = existing.parentalConsentGivenAt?.getTime() !== input.parentalConsentGivenAt.getTime()
+      if (changed) {
+        parentalConsentEnteredBy = (await tx.appUser.findUniqueOrThrow({ where: { authUserId: actor.authUserId } })).id
+      }
+    }
+    await tx.student.update({ where: { id: student.id }, data: { ...input, parentalConsentEnteredBy } })
   })
 }

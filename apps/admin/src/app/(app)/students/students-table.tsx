@@ -78,7 +78,7 @@ export function StudentsTable({
         page={page}
         pageSize={pageSize}
         totalCount={totalCount}
-        basePath='/students'
+        basePath='/users'
         searchParams={searchParams}
       />
     </div>

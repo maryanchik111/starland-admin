@@ -17,14 +17,14 @@ async function makeClass(yearSuffix: string) {
   })
   createdYearIds.push(year.id)
   const cls = await prisma.class.create({
-    data: { academicYearId: year.id, gradeLevel: 5, name: `5-В-${randomUUID().slice(0, 8)}` },
+    data: { academicYearId: year.id, gradeLevel: 5, name: `5-B-${randomUUID().slice(0, 8)}` },
   })
   return cls
 }
 
 async function makeStudent() {
   const student = await prisma.student.create({
-    data: { firstName: 'Зарахування', lastName: 'Тест', bornOn: new Date('2015-05-05') },
+    data: { firstName: 'Enrollment', lastName: 'Test', bornOn: new Date('2015-05-05') },
   })
   createdStudentIds.push(student.id)
   return student
@@ -90,7 +90,7 @@ describe('assignClassWithPermissions', () => {
     const newClass = await makeClass(randomUUID())
     const student = await makeStudent()
     const oldEnrollment = await prisma.enrollment.create({
-      data: { studentId: student.id, classId: oldClass.id, fromDate: new Date('2026-09-01'), status: 'active' },
+      data: { studentId: student.id, classId: oldClass.id, fromDate: new Date('2026-09-01'), statusKind: 'active' },
     })
     const permissions = new EffectivePermissions([
       { permissionCode: 'students.write', scopeType: 'class', scopeId: newClass.id },
@@ -103,6 +103,7 @@ describe('assignClassWithPermissions', () => {
     const closedOld = await prisma.enrollment.findUniqueOrThrow({ where: { id: oldEnrollment.id } })
     expect(closedOld.toDate).not.toBeNull()
     expect(closedOld.classId).toBe(oldClass.id) // never rewritten in place
+    expect(closedOld.statusKind).toBe('transferred_internal')
 
     const newEnrollment = await prisma.enrollment.findUniqueOrThrow({ where: { id: result.id } })
     expect(newEnrollment.classId).toBe(newClass.id)
@@ -116,7 +117,7 @@ describe('assignClassWithPermissions', () => {
     const cls = await makeClass(randomUUID())
     const student = await makeStudent()
     await prisma.enrollment.create({
-      data: { studentId: student.id, classId: cls.id, fromDate: new Date('2026-09-01'), status: 'active' },
+      data: { studentId: student.id, classId: cls.id, fromDate: new Date('2026-09-01'), statusKind: 'active' },
     })
     const permissions = new EffectivePermissions([
       { permissionCode: 'students.write', scopeType: 'class', scopeId: cls.id },

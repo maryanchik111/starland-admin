@@ -1,67 +1,100 @@
 @import "tailwindcss";
 
 :root {
-  --primary: #7165CF;
-  --primary-hover: #988DEF;
+  /* Modern clean Indigo/Slate theme */
+  --primary: #4F46E5; /* Indigo 600 */
+  --primary-hover: #4338CA; /* Indigo 700 */
   --primary-foreground: #ffffff;
-  --secondary: #3C3577;
-  --secondary-foreground: #ffffff;
-  --accent: #EED850;
-  --accent-foreground: #3C3577;
-  --destructive: #ff5268;
+  
+  --secondary: #F1F5F9; /* Slate 100 */
+  --secondary-foreground: #0F172A; /* Slate 900 */
+  
+  --accent: #F8FAFC; /* Slate 50 */
+  --accent-foreground: #0F172A;
+  
+  --destructive: #EF4444; /* Red 500 */
   --destructive-foreground: #ffffff;
-  --background: #ffffff;
-  --foreground: #222222;
-  --muted: #f4f4f4;
-  --muted-foreground: #444444;
-  --border: #d7d7d7;
-  --input: #d7d7d7;
-  --ring: #7165CF;
-  --card: #ffffff;
-  --card-foreground: #222222;
-  --popover: #ffffff;
-  --popover-foreground: #222222;
 
+  --success: #10B981; /* Emerald 500 */
+  --success-foreground: #ffffff;
+  --info: #0EA5E9; /* Sky 500 */
+  --info-foreground: #ffffff;
+  --warning: #F59E0B; /* Amber 500 */
+  --warning-foreground: #ffffff;
+
+  --background: #F8FAFC; /* Slate 50 for app background */
+  --foreground: #0F172A; /* Slate 900 */
+  
+  --muted: #F1F5F9; /* Slate 100 */
+  --muted-foreground: #64748B; /* Slate 500 */
+  
+  --border: #E2E8F0; /* Slate 200 */
+  --input: #E2E8F0;
+  --ring: #4F46E5;
+  
+  --card: #ffffff;
+  --card-foreground: #0F172A;
+  
+  --popover: #ffffff;
+  --popover-foreground: #0F172A;
+
+  /* Sidebar styling: clean white with subtle accents */
   --sidebar: #ffffff;
-  --sidebar-foreground: #222222;
-  --sidebar-primary: #7165CF;
+  --sidebar-foreground: #334155; /* Slate 700 */
+  --sidebar-primary: #4F46E5;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f4f4f4;
-  --sidebar-accent-foreground: #222222;
-  --sidebar-border: #d7d7d7;
-  --sidebar-ring: #7165CF;
+  --sidebar-accent: #F1F5F9; /* Slate 100 */
+  --sidebar-accent-foreground: #0F172A;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: #4F46E5;
 }
 
 .dark {
-  --primary: #988DEF;
-  --primary-hover: #7165CF;
-  --primary-foreground: #17142b;
-  --secondary: #CED9FB;
-  --secondary-foreground: #17142b;
-  --accent: #EEC450;
-  --accent-foreground: #17142b;
-  --destructive: #FF7B8C;
-  --destructive-foreground: #17142b;
-  --background: #17142b;
-  --foreground: #f2f4f6;
-  --muted: #221f3d;
-  --muted-foreground: #a3a0c2;
-  --border: #322d55;
-  --input: #322d55;
-  --ring: #988DEF;
-  --card: #1e1a38;
-  --card-foreground: #f2f4f6;
-  --popover: #1e1a38;
-  --popover-foreground: #f2f4f6;
+  --primary: #6366F1; /* Indigo 500 */
+  --primary-hover: #818CF8; /* Indigo 400 */
+  --primary-foreground: #ffffff;
+  
+  --secondary: #1E293B; /* Slate 800 */
+  --secondary-foreground: #F8FAFC; /* Slate 50 */
+  
+  --accent: #1E293B;
+  --accent-foreground: #F8FAFC;
+  
+  --destructive: #F87171;
+  --destructive-foreground: #450a0a;
 
-  --sidebar: #17142b;
-  --sidebar-foreground: #f2f4f6;
-  --sidebar-primary: #988DEF;
-  --sidebar-primary-foreground: #17142b;
-  --sidebar-accent: #221f3d;
-  --sidebar-accent-foreground: #f2f4f6;
-  --sidebar-border: #322d55;
-  --sidebar-ring: #988DEF;
+  --success: #34D399;
+  --success-foreground: #022c22;
+  --info: #38BDF8;
+  --info-foreground: #082f49;
+  --warning: #FBBF24;
+  --warning-foreground: #422006;
+
+  --background: #0F172A; /* Slate 900 */
+  --foreground: #F8FAFC; /* Slate 50 */
+  
+  --muted: #1E293B; /* Slate 800 */
+  --muted-foreground: #94A3B8; /* Slate 400 */
+  
+  --border: #1E293B;
+  --input: #1E293B;
+  --ring: #6366F1;
+  
+  --card: #020617; /* Slate 950 */
+  --card-foreground: #F8FAFC;
+  
+  --popover: #020617;
+  --popover-foreground: #F8FAFC;
+
+  /* Dark mode sidebar */
+  --sidebar: #020617; /* Slate 950 */
+  --sidebar-foreground: #CBD5E1; /* Slate 300 */
+  --sidebar-primary: #6366F1;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1E293B; /* Slate 800 */
+  --sidebar-accent-foreground: #F8FAFC;
+  --sidebar-border: #1E293B;
+  --sidebar-ring: #6366F1;
 }
 
 @theme inline {
@@ -73,6 +106,12 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
@@ -94,12 +133,46 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-geist-mono);
+}
+
+/* Tailwind v4 changed the default `border`/`border-b`/`border-t`/`border-r`
+   color from gray-200 to `currentColor` (see the v4 upgrade guide). Without
+   this reset, every unqualified border utility in the app — Card, Input,
+   Button's outline variant, Table, Header, Sidebar — renders in the
+   surrounding text color instead of the intended --border token, which is
+   why plain boxes were showing near-black borders everywhere. */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--border);
+  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--primary) 30%, transparent);
+  color: var(--foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

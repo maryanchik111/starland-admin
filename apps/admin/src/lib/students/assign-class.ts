@@ -45,10 +45,17 @@ export async function assignClassWithPermissions(
     })}, true)`
     const now = new Date()
     if (currentActive) {
-      await tx.enrollment.update({ where: { id: currentActive.id }, data: { toDate: now } })
+      // Closed because of an in-school class change, not a withdrawal —
+      // withdrawn/graduated/expelled/academic_leave go through
+      // changeEnrollmentStatusWithPermissions instead, which never creates a
+      // replacement row.
+      await tx.enrollment.update({
+        where: { id: currentActive.id },
+        data: { toDate: now, statusKind: 'transferred_internal' },
+      })
     }
     return tx.enrollment.create({
-      data: { studentId: target.studentId, classId: input.classId, fromDate: now, status: 'active' },
+      data: { studentId: target.studentId, classId: input.classId, fromDate: now, statusKind: 'active' },
     })
   })
   return { id: created.id }

@@ -28,7 +28,13 @@ export async function createStudentWithPermissions(
       sub: actor.authUserId,
       role: 'authenticated',
     })}, true)`
-    return tx.student.create({ data: input })
+    // `parentalConsentEnteredBy` is never accepted from the request body
+    // (not in CreateStudentInput at all) — it's the acting director/staff
+    // member, resolved from their own session, not a client-supplied value.
+    const parentalConsentEnteredBy = input.parentalConsentGivenAt
+      ? (await tx.appUser.findUniqueOrThrow({ where: { authUserId: actor.authUserId } })).id
+      : undefined
+    return tx.student.create({ data: { ...input, parentalConsentEnteredBy } })
   })
   return { id: created.id }
 }

@@ -1,12 +1,11 @@
 'use client'
 
 import { useTransition } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { uk } from '@starland/i18n'
+import { usePersonModal } from '@/components/person-modal-provider'
 import { CreateUserInput as CreateUserSchema } from '@/lib/users/create-user-schema'
 import type { CreateUserInput } from '@/lib/users/create-user-schema'
 import { Button } from '@/components/ui/button'
@@ -37,7 +36,7 @@ export function NewUserForm({
   roles: { code: string; name: string }[]
   submitAction: (raw: unknown) => Promise<SubmitResult>
 }) {
-  const router = useRouter()
+  const { close, refresh } = usePersonModal()
   const [isPending, startTransition] = useTransition()
 
   const form = useForm<CreateUserInput>({
@@ -50,7 +49,8 @@ export function NewUserForm({
       const result = await submitAction(values)
       if (result.ok) {
         toast.success(uk.users.createSuccess)
-        router.push('/users')
+        close()
+        refresh()
         return
       }
       form.setError('root', { message: result.message })
@@ -129,8 +129,8 @@ export function NewUserForm({
           <Button type="submit" disabled={isPending}>
             {uk.users.create}
           </Button>
-          <Button variant="outline" asChild>
-            <Link href="/users">{uk.common.cancel}</Link>
+          <Button type="button" variant="outline" onClick={close}>
+            {uk.common.cancel}
           </Button>
         </div>
       </form>

@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { uk } from '@starland/i18n'
+import { usePersonModal } from '@/components/person-modal-provider'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -41,7 +41,7 @@ export function RolesTab({
   assignAction: (raw: unknown) => Promise<ActionResult>
   revokeAction: (raw: unknown) => Promise<ActionResult>
 }) {
-  const router = useRouter()
+  const { refresh } = usePersonModal()
   const [isPending, startTransition] = useTransition()
   const [selectedRole, setSelectedRole] = useState('')
 
@@ -54,7 +54,7 @@ export function RolesTab({
       if (result.ok) {
         toast.success(uk.users.assignSuccess)
         setSelectedRole('')
-        router.refresh()
+        refresh()
         return
       }
       toast.error(result.message)
@@ -66,7 +66,7 @@ export function RolesTab({
       const result = await revokeAction({ roleCode })
       if (result.ok) {
         toast.success(uk.users.revokeSuccess)
-        router.refresh()
+        refresh()
         return
       }
       toast.error(result.message)

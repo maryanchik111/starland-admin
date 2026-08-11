@@ -165,6 +165,73 @@ model UserEffectiveScope {
   @@map("user_effective_scopes")
 }
 
+enum EnrollmentStatusKind {
+  active
+  transferred_internal
+  withdrawn
+  graduated
+  expelled
+  academic_leave
+
+  @@map("enrollment_status_kind")
+}
+
+enum EmploymentStatusKind {
+  working
+  vacation
+  sick_leave
+  maternity_leave
+  unpaid_leave
+  dismissed
+
+  @@map("employment_status_kind")
+}
+
+enum OrderKind {
+  enrollment
+  exclusion
+  graduation
+  transfer
+  hiring
+  dismissal
+  leave
+  award
+
+  @@map("order_kind")
+}
+
+model SchoolOrder {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number    String
+  issuedOn  DateTime  @map("issued_on") @db.Date
+  kind      OrderKind
+  title     String
+  filePath  String?   @map("file_path")
+  createdBy String    @map("created_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  employees   Employee[]
+  enrollments Enrollment[]
+
+  @@index([kind, issuedOn])
+  @@map("school_orders")
+}
+
+model StaffPosition {
+  code       String    @id
+  name       String
+  isTeaching Boolean   @default(true) @map("is_teaching")
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  employees Employee[]
+
+  @@map("staff_positions")
+}
+
 enum CalendarDayKind {
   holiday
   vacation
@@ -339,17 +406,20 @@ model Guardianship {
 }
 
 model Enrollment {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  studentId String    @map("student_id") @db.Uuid
-  classId   String    @map("class_id") @db.Uuid
-  fromDate  DateTime  @map("from_date") @db.Date
-  toDate    DateTime? @map("to_date") @db.Date
-  status    String    @default("active")
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  id            String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId     String               @map("student_id") @db.Uuid
+  classId       String               @map("class_id") @db.Uuid
+  fromDate      DateTime             @map("from_date") @db.Date
+  toDate        DateTime?            @map("to_date") @db.Date
+  statusKind    EnrollmentStatusKind @default(active) @map("status_kind")
+  reason        String?
+  statusOrderId String?              @map("status_order_id") @db.Uuid
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime             @updatedAt @map("updated_at") @db.Timestamptz
 
-  student Student @relation(fields: [studentId], references: [id])
-  class   Class   @relation(fields: [classId], references: [id])
+  student     Student      @relation(fields: [studentId], references: [id])
+  class       Class        @relation(fields: [classId], references: [id])
+  statusOrder SchoolOrder? @relation(fields: [statusOrderId], references: [id])
 
   @@index([classId, toDate])
   @@index([studentId])
@@ -438,31 +508,48 @@ model SensitiveAccessLog {
   @@map("sensitive_access_logs")
 }
 
-model StaffProfile {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId        String    @unique @map("user_id") @db.Uuid
-  phone         String?
-  category      String?
-  experienceYears Int?    @map("experience_years")
-  position      String?
-  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz
-  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+// Deliberately independent of AppUser — same shape as GuardianPerson: an
+// employee record must exist for people who never get a system login
+// (security guards, cooks, cleaners), so `userId` is optional, not the
+// anchor. When it is set, the UI pre-fills from AppUser.fullName as a
+// convenience, but the fields below remain the editable source of truth
+// (see docs/plans/2026-08-10-staff-and-status-model.md, Task 3).
+model Employee {
+  id               String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String?              @unique @map("user_id") @db.Uuid
+  firstName        String               @map("first_name")
+  lastName         String               @map("last_name")
+  middleName       String?              @map("middle_name")
+  phone            String?
+  email            String?
+  positionCode     String?              @map("position_code")
+  category         String?
+  experienceYears  Int?                 @map("experience_years")
+  employmentStatus EmploymentStatusKind @default(working) @map("employment_status")
+  hiredOn          DateTime?            @map("hired_on") @db.Date
+  dismissedOn      DateTime?            @map("dismissed_on") @db.Date
+  statusOrderId    String?              @map("status_order_id") @db.Uuid
+  deletedAt        DateTime?            @map("deleted_at") @db.Timestamptz
+  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime             @updatedAt @map("updated_at") @db.Timestamptz
 
-  awards StaffAward[]
+  position    StaffPosition? @relation(fields: [positionCode], references: [code])
+  statusOrder SchoolOrder?   @relation(fields: [statusOrderId], references: [id])
+  awards      StaffAward[]
 
-  @@map("staff_profiles")
+  @@map("employees")
 }
 
 model StaffAward {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  profileId String   @map("profile_id") @db.Uuid
-  title     String
-  awardedOn DateTime @map("awarded_on") @db.Date
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId String    @map("employee_id") @db.Uuid
+  title      String
+  awardedOn  DateTime  @map("awarded_on") @db.Date
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
-  profile StaffProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@map("staff_awards")
 }
@@ -495,7 +582,10 @@ model TeachingAssignment {
   subject Subject @relation(fields: [subjectId], references: [id])
   class   Class   @relation(fields: [classId], references: [id])
 
-  @@unique([teacherUserId, subjectId, classId, periodId])
+  // Partial unique index (teacherUserId, subjectId, classId, periodId) WHERE
+  // deleted_at IS NULL lives in the migration's raw SQL — Prisma has no
+  // declarative way to express a partial unique index, so it isn't modeled
+  // here (see 20260810144500_teaching_assignments_soft_delete_unique).
   @@index([teacherUserId])
   @@map("teaching_assignments")
 }

@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { prisma } from '@starland/db'
-import { loadEffectivePermissions } from '@starland/domain'
+import { loadEffectivePermissions } from '@starland/domain/server'
 import type { EffectivePermissions } from '@starland/domain'
 
 export interface Session {

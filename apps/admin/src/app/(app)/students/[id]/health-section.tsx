@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { uk } from '@starland/i18n'
 import { UpdateStudentHealthInput } from '@/lib/students/health-schema'
+import { usePersonModal } from '@/components/person-modal-provider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -37,7 +37,7 @@ export type HealthData = {
  * building one is out of scope for this task), so the form's own value type
  * is all strings; `formSchema` below converts to `UpdateStudentHealthInput`'s
  * shape before validation. Same "empty field = don't touch this column"
- * convention as edit-student-form.tsx.
+ * convention as student-info-section.tsx.
  */
 type HealthFormValues = {
   healthGroup?: string
@@ -87,7 +87,7 @@ export function HealthSection({
   updateHealthAction: (raw: unknown) => Promise<ActionResult>
   updateNoteAction: (raw: unknown) => Promise<ActionResult>
 }) {
-  const router = useRouter()
+  const { refresh } = usePersonModal()
   const [isHealthPending, startHealthTransition] = useTransition()
   const [isNotePending, startNoteTransition] = useTransition()
   const [noteValue, setNoteValue] = useState(note ?? '')
@@ -108,7 +108,7 @@ export function HealthSection({
       const result = await updateHealthAction(values)
       if (result.ok) {
         toast.success(uk.students.health.updateSuccess)
-        router.refresh()
+        refresh()
         return
       }
       form.setError('root', { message: result.message })
@@ -121,7 +121,7 @@ export function HealthSection({
       const result = await updateNoteAction({ content: noteValue })
       if (result.ok) {
         toast.success(uk.students.health.noteUpdateSuccess)
-        router.refresh()
+        refresh()
         return
       }
       toast.error(result.message)

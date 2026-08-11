@@ -1,14 +1,14 @@
 'use client'
 
-import Link from 'next/link'
 import { type ColumnDef } from '@tanstack/react-table'
-import { AlertTriangle, Eye, Pencil } from 'lucide-react'
+import { AlertTriangle, Eye } from 'lucide-react'
 import { uk } from '@starland/i18n'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { DataTableColumnHeader } from '@/components/data-table/column-header'
 import { calculateAge, formatDate } from '@/lib/date'
+import { usePersonModal } from '@/components/person-modal-provider'
 
 export type StudentRow = {
   id: string
@@ -18,35 +18,57 @@ export type StudentRow = {
   criticalNote: string | null
   guardian: { fullName: string; phone: string | null } | null
   isEnrolled: boolean
-  canEdit: boolean
 }
 
 function getInitials(name: string) {
   return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
 }
 
+function FullNameCell({ student }: { student: StudentRow }) {
+  const { openStudent } = usePersonModal()
+  return (
+    <button
+      type="button"
+      onClick={() => openStudent(student.id)}
+      className="flex items-center gap-3 hover:text-primary text-left cursor-pointer"
+    >
+      <Avatar className="h-9 w-9 rounded-md bg-orange-100 text-orange-700">
+        <AvatarFallback className="rounded-md bg-orange-100 text-orange-700 font-medium">
+          {getInitials(student.fullName)}
+        </AvatarFallback>
+      </Avatar>
+      <span className="font-semibold text-foreground text-sm">{student.fullName}</span>
+      {student.criticalNote && (
+        <span title={student.criticalNote} className="shrink-0">
+          <AlertTriangle className="size-4 text-destructive" aria-label={uk.students.criticalNote} />
+        </span>
+      )}
+    </button>
+  )
+}
+
+function ViewStudentButtonCell({ studentId }: { studentId: string }) {
+  const { openStudent } = usePersonModal()
+  return (
+    <div className="flex items-center justify-end gap-0.5 text-muted-foreground">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-8 hover:text-foreground"
+        title={uk.students.view}
+        onClick={() => openStudent(studentId)}
+      >
+        <Eye className="size-4" />
+      </Button>
+    </div>
+  )
+}
+
 export const columns: ColumnDef<StudentRow>[] = [
   {
     accessorKey: 'fullName',
     header: () => <DataTableColumnHeader title={uk.students.fullName} sortKey="fullName" />,
-    cell: ({ row }) => {
-      const student = row.original
-      return (
-        <Link href={`/students/${student.id}`} className="flex items-center gap-3 hover:text-primary">
-          <Avatar className="h-9 w-9 rounded-md bg-orange-100 text-orange-700">
-            <AvatarFallback className="rounded-md bg-orange-100 text-orange-700 font-medium">
-              {getInitials(student.fullName)}
-            </AvatarFallback>
-          </Avatar>
-          <span className="font-semibold text-foreground text-sm">{student.fullName}</span>
-          {student.criticalNote && (
-            <span title={student.criticalNote} className="shrink-0">
-              <AlertTriangle className="size-4 text-destructive" aria-label={uk.students.criticalNote} />
-            </span>
-          )}
-        </Link>
-      )
-    },
+    cell: ({ row }) => <FullNameCell student={row.original} />,
   },
   {
     accessorKey: 'className',
@@ -93,21 +115,6 @@ export const columns: ColumnDef<StudentRow>[] = [
   {
     id: 'actions',
     header: () => <div className="text-right">{uk.students.actions}</div>,
-    cell: ({ row }) => (
-      <div className="flex items-center justify-end gap-0.5 text-muted-foreground">
-        <Button variant="ghost" size="icon" asChild className="size-8 hover:text-foreground" title={uk.students.view}>
-          <Link href={`/students/${row.original.id}`}>
-            <Eye className="size-4" />
-          </Link>
-        </Button>
-        {row.original.canEdit && (
-          <Button variant="ghost" size="icon" asChild className="size-8 hover:text-foreground" title={uk.common.edit}>
-            <Link href={`/students/${row.original.id}/edit`}>
-              <Pencil className="size-4" />
-            </Link>
-          </Button>
-        )}
-      </div>
-    ),
+    cell: ({ row }) => <ViewStudentButtonCell studentId={row.original.id} />,
   },
 ]

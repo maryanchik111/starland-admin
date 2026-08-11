@@ -13,31 +13,20 @@ type DataTableToolbarProps = {
   searchPlaceholder?: string
   /** Debounce before pushing the new search term into the URL. */
   debounceMs?: number
+  actions?: React.ReactNode
 }
 
-/**
- * Server-driven search box for a Next.js App Router data table page.
- *
- * Unlike the reference implementation (React Router + client-side table
- * filtering), search state here lives in the URL: typing debounces into a
- * `router.push` with an updated query string, which the server component
- * reads from `searchParams` to re-query the page. Changing the search term
- * also clears `page` so a stale page number is never carried across a new
- * filter.
- */
 export function DataTableToolbar({
   searchParamKey = 'q',
   searchPlaceholder = uk.dataTable.searchPlaceholder,
   debounceMs = 300,
+  actions,
 }: DataTableToolbarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const urlValue = searchParams.get(searchParamKey) ?? ''
   const [value, setValue] = React.useState(urlValue)
-  // Resync local state when the URL changes from outside this component
-  // (back/forward navigation, a different filter control, etc.) without
-  // calling setState unconditionally on every render.
   const [syncedUrlValue, setSyncedUrlValue] = React.useState(urlValue)
   if (urlValue !== syncedUrlValue && value === syncedUrlValue) {
     setSyncedUrlValue(urlValue)
@@ -78,7 +67,7 @@ export function DataTableToolbar({
           placeholder={searchPlaceholder}
           value={value}
           onChange={(event) => setValue(event.target.value)}
-          className='h-8 w-37.5 lg:w-62.5'
+          className='h-9 w-[250px] lg:w-[300px]'
         />
         {isFiltered && (
           <Button
@@ -91,6 +80,7 @@ export function DataTableToolbar({
           </Button>
         )}
       </div>
+      {actions && <div className="flex items-center gap-2">{actions}</div>}
     </div>
   )
 }

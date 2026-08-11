@@ -10,38 +10,38 @@ async function makeUserWithRole(email: string, roleCode: string) {
   return { authId, userId: user.id }
 }
 
-describe('staff_profiles_read', () => {
-  it('lets a user with global staff.read scope see all profiles', async () => {
+describe('employees_read', () => {
+  it('lets a user with global staff.read scope see all employees', async () => {
     const admin = await makeUserWithRole(`staffread-${Date.now()}@starland.test`, 'director')
     const owner = await createAuthUser(`profileowner-${Date.now()}@starland.test`)
     const ownerUser = await prisma.appUser.findFirstOrThrow({ where: { authUserId: owner } })
-    await prisma.staffProfile.create({ data: { userId: ownerUser.id, position: 'Вчитель' } })
+    await prisma.employee.create({ data: { userId: ownerUser.id, firstName: 'Тест', lastName: 'Тестовий', positionCode: 'teacher' } })
 
     const visible = await asUser(admin.authId, async (c) => {
-      return c.$queryRaw<Array<{ id: string }>>`select id from staff_profiles`
+      return c.$queryRaw<Array<{ id: string }>>`select id from employees`
     })
     expect(visible.length).toBeGreaterThan(0)
   })
 
-  it('hides profiles from a user with no relevant scope', async () => {
+  it('hides employees from a user with no relevant scope', async () => {
     const secretary = await makeUserWithRole(`nostaffread-${Date.now()}@starland.test`, 'secretary')
     const owner = await createAuthUser(`profileowner2-${Date.now()}@starland.test`)
     const ownerUser = await prisma.appUser.findFirstOrThrow({ where: { authUserId: owner } })
-    await prisma.staffProfile.create({ data: { userId: ownerUser.id, position: 'Вчитель' } })
+    await prisma.employee.create({ data: { userId: ownerUser.id, firstName: 'Тест', lastName: 'Тестовий', positionCode: 'teacher' } })
 
     const visible = await asUser(secretary.authId, async (c) => {
-      return c.$queryRaw<Array<{ id: string }>>`select id from staff_profiles`
+      return c.$queryRaw<Array<{ id: string }>>`select id from employees`
     })
     expect(visible).toHaveLength(0)
   })
 
-  it('lets a user see their own profile row even without staff.read', async () => {
+  it('lets a user see their own employee row even without staff.read', async () => {
     const authId = await createAuthUser(`ownprofile-${Date.now()}@starland.test`)
     const user = await prisma.appUser.findFirstOrThrow({ where: { authUserId: authId } })
-    await prisma.staffProfile.create({ data: { userId: user.id, position: 'Вчитель' } })
+    await prisma.employee.create({ data: { userId: user.id, firstName: 'Тест', lastName: 'Тестовий', positionCode: 'teacher' } })
 
     const visible = await asUser(authId, async (c) => {
-      return c.$queryRaw<Array<{ id: string; user_id: string }>>`select id, user_id from staff_profiles`
+      return c.$queryRaw<Array<{ id: string; user_id: string }>>`select id, user_id from employees`
     })
     expect(visible).toHaveLength(1)
     expect(visible[0]?.user_id).toBe(user.id)
@@ -52,9 +52,9 @@ describe('staff_awards_read', () => {
   async function makeProfileWithAward() {
     const authId = await createAuthUser(`awardowner-${Date.now()}@starland.test`)
     const user = await prisma.appUser.findFirstOrThrow({ where: { authUserId: authId } })
-    const profile = await prisma.staffProfile.create({ data: { userId: user.id, position: 'Вчитель' } })
+    const employee = await prisma.employee.create({ data: { userId: user.id, firstName: 'Тест', lastName: 'Тестовий', positionCode: 'teacher' } })
     await prisma.staffAward.create({
-      data: { profileId: profile.id, title: 'Грамота', awardedOn: new Date('2026-01-01') },
+      data: { employeeId: employee.id, title: 'Грамота', awardedOn: new Date('2026-01-01') },
     })
     return { authId, userId: user.id }
   }

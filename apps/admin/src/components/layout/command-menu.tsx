@@ -12,6 +12,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { searchPeople } from '@/app/(app)/command-menu-actions'
+import { usePersonModal } from '@/components/person-modal-provider'
 import { NAV_ITEMS, type SerializableNavItem } from './nav-config'
 import type { PersonResult } from '@/lib/search-people'
 
@@ -21,6 +22,7 @@ export function CommandMenu({ items }: { items: readonly SerializableNavItem[] }
   const [people, setPeople] = useState<PersonResult[]>([])
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
+  const { openStudent } = usePersonModal()
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -91,7 +93,7 @@ export function CommandMenu({ items }: { items: readonly SerializableNavItem[] }
                 value={person.name}
                 onSelect={() => {
                   setOpen(false)
-                  router.push(`/students/${person.id}`)
+                  openStudent(person.id)
                 }}
               >
                 <span>{person.name}</span>

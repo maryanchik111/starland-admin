@@ -1,9 +1,9 @@
 'use client'
 
 import { useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { uk } from '@starland/i18n'
+import { usePersonModal } from '@/components/person-modal-provider'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,6 +17,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { cn } from '@/lib/utils'
 
 type ActionResult = { ok: true } | { ok: false; message: string }
 
@@ -24,12 +25,16 @@ export function StatusToggle({
   isActive,
   canManage,
   setActiveAction,
+  showBadge = true,
+  buttonClassName,
 }: {
   isActive: boolean
   canManage: boolean
   setActiveAction: (isActive: boolean) => Promise<ActionResult>
+  showBadge?: boolean
+  buttonClassName?: string
 }) {
-  const router = useRouter()
+  const { refresh } = usePersonModal()
   const [isPending, startTransition] = useTransition()
 
   function handleSetActive(next: boolean) {
@@ -37,7 +42,7 @@ export function StatusToggle({
       const result = await setActiveAction(next)
       if (result.ok) {
         toast.success(next ? uk.users.reactivateSuccess : uk.users.deactivateSuccess)
-        router.refresh()
+        refresh()
         return
       }
       toast.error(result.message)
@@ -46,14 +51,16 @@ export function StatusToggle({
 
   return (
     <span className="flex items-center gap-2">
-      <Badge variant={isActive ? 'default' : 'outline'}>
-        {isActive ? uk.users.active : uk.users.inactive}
-      </Badge>
+      {showBadge && (
+        <Badge variant={isActive ? 'default' : 'outline'}>
+          {isActive ? uk.users.active : uk.users.inactive}
+        </Badge>
+      )}
       {canManage &&
         (isActive ? (
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="outline" size="sm" disabled={isPending}>
+              <Button variant="outline" size="sm" disabled={isPending} className={cn(buttonClassName)}>
                 {uk.users.deactivate}
               </Button>
             </AlertDialogTrigger>
@@ -71,7 +78,7 @@ export function StatusToggle({
             </AlertDialogContent>
           </AlertDialog>
         ) : (
-          <Button variant="outline" size="sm" disabled={isPending} onClick={() => handleSetActive(true)}>
+          <Button variant="outline" size="sm" disabled={isPending} onClick={() => handleSetActive(true)} className={cn(buttonClassName)}>
             {uk.users.reactivate}
           </Button>
         ))}

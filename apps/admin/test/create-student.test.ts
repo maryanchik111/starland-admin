@@ -72,6 +72,35 @@ describe('createStudentWithPermissions', () => {
     await prisma.$executeRaw`delete from auth.users where id = ${authUserId}::uuid`
   })
 
+  it('records who entered the parental consent, from the actor, never the request body', async () => {
+    const authUserId = randomUUID()
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`
+        insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
+        values (${authUserId}::uuid, '00000000-0000-0000-0000-000000000000'::uuid, 'authenticated', 'authenticated', ${`create-student-consent-${authUserId}@admin-starland.test`}, '', now(), now(), now())
+      `
+      await tx.appUser.create({
+        data: { authUserId, fullName: 'Актор Згоди', email: `create-student-consent-${authUserId}@admin-starland.test` },
+      })
+    })
+    const actor = await prisma.appUser.findFirstOrThrow({ where: { authUserId } })
+
+    const result = await createStudentWithPermissions(studentsWriteGlobal, { authUserId }, {
+      firstName: 'Іван',
+      lastName: 'Петренко',
+      bornOn: '2016-03-20',
+      parentalConsentGivenAt: '2026-08-01',
+    })
+    createdStudentIds.push(result.id)
+
+    const created = await prisma.student.findUniqueOrThrow({ where: { id: result.id } })
+    expect(created.parentalConsentGivenAt?.toISOString().slice(0, 10)).toBe('2026-08-01')
+    expect(created.parentalConsentEnteredBy).toBe(actor.id)
+
+    await prisma.appUser.deleteMany({ where: { authUserId } })
+    await prisma.$executeRaw`delete from auth.users where id = ${authUserId}::uuid`
+  })
+
   it('rejects a payload missing required fields', async () => {
     await expect(
       createStudentWithPermissions(studentsWriteGlobal, { authUserId: randomUUID() }, {

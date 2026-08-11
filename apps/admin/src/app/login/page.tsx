@@ -30,10 +30,15 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-6">
+    <main className="flex min-h-screen items-center justify-center bg-muted/40 p-6">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Starland</CardTitle>
+          <div className="mb-1 flex items-center gap-2">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
+              S
+            </span>
+            <CardTitle>Starland</CardTitle>
+          </div>
           <CardDescription>{uk.auth.signIn}</CardDescription>
         </CardHeader>
         <CardContent>

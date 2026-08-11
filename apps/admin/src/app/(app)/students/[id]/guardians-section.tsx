@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { uk } from '@starland/i18n'
+import { usePersonModal } from '@/components/person-modal-provider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -59,7 +59,7 @@ export function GuardiansSection({
   linkAction: (raw: unknown) => Promise<ActionResult>
   unlinkAction: (guardianshipId: string) => Promise<ActionResult>
 }) {
-  const router = useRouter()
+  const { refresh } = usePersonModal()
   const [isPending, startTransition] = useTransition()
   const [open, setOpen] = useState(false)
 
@@ -122,7 +122,7 @@ export function GuardiansSection({
         toast.success(uk.students.linkSuccess)
         setOpen(false)
         resetForm()
-        router.refresh()
+        refresh()
         return
       }
       toast.error(result.message)
@@ -147,7 +147,7 @@ export function GuardiansSection({
         toast.success(uk.students.linkSuccess)
         setOpen(false)
         resetForm()
-        router.refresh()
+        refresh()
         return
       }
       toast.error(result.message)
@@ -159,7 +159,7 @@ export function GuardiansSection({
       const result = await unlinkAction(guardianshipId)
       if (result.ok) {
         toast.success(uk.students.unlinkSuccess)
-        router.refresh()
+        refresh()
         return
       }
       toast.error(result.message)

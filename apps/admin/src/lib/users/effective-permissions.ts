@@ -2,8 +2,8 @@ import { prisma } from '@starland/db'
 import { requirePermission, type EffectivePermissions, type ScopeType } from '@starland/domain'
 
 export type PermissionOrigin =
-  | { type: 'role'; roleId: string; roleCode: string; roleName: string }
-  | { type: 'grant'; grantId: string; reason: string; grantedBy: string; expiresAt: Date | null }
+  | { type: 'role'; roleId: string; roleCode: string; roleName: string; grantedBy: string | null; createdAt: Date }
+  | { type: 'grant'; grantId: string; reason: string; grantedBy: string; expiresAt: Date | null; createdAt: Date }
 
 export interface EffectivePermissionRow {
   permissionCode: string
@@ -84,6 +84,8 @@ export async function getEffectivePermissionsProfile(
       roleId: userRole.role.id,
       roleCode: userRole.role.code,
       roleName: userRole.role.name,
+      grantedBy: userRole.grantedBy,
+      createdAt: userRole.createdAt,
     })
     for (const rp of userRole.role.rolePermissions) {
       const code = rp.permission.code
@@ -117,6 +119,7 @@ export async function getEffectivePermissionsProfile(
       reason: grant.reason,
       grantedBy: grant.grantedBy,
       expiresAt: grant.expiresAt,
+      createdAt: grant.createdAt,
     })
   }
 

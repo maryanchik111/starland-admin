@@ -1,33 +1,39 @@
-import Link from 'next/link'
+'use client'
 
-const PATH_BY_KIND: Record<'student' | 'staff' | 'user', string> = {
-  student: 'students',
-  staff: 'staff',
-  user: 'users',
-}
+import { usePersonModal } from '@/components/person-modal-provider'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+
+type Kind = 'student' | 'staff' | 'user'
 
 export function PersonLink({
   id, name, kind, photoUrl,
 }: {
   id: string
   name: string
-  kind: 'student' | 'staff' | 'user'
+  kind: Kind
   /** Підписаний URL із коротким TTL. Відсутній — рендеримо ініціали. */
   photoUrl?: string | undefined
 }) {
+  const { openStudent, openStaff, openUser } = usePersonModal()
   const initials = name.split(' ').map((p) => p[0] ?? '').slice(0, 2).join('')
 
+  function handleClick() {
+    if (kind === 'student') openStudent(id)
+    else if (kind === 'staff') openStaff(id)
+    else openUser(id)
+  }
+
   return (
-    <Link className="inline-flex items-center gap-2 underline underline-offset-2"
-          href={`/${PATH_BY_KIND[kind]}/${id}`}>
-      {photoUrl ? (
-        <img src={photoUrl} alt="" className="h-6 w-6 rounded-full object-cover" />
-      ) : (
-        <span aria-hidden className="grid h-6 w-6 place-items-center rounded-full bg-neutral-200 text-xs">
-          {initials}
-        </span>
-      )}
+    <button
+      type="button"
+      onClick={handleClick}
+      className="inline-flex items-center gap-2 hover:text-primary cursor-pointer text-left"
+    >
+      <Avatar className="size-6">
+        {photoUrl && <AvatarImage src={photoUrl} alt="" />}
+        <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+      </Avatar>
       {name}
-    </Link>
+    </button>
   )
 }
