@@ -5,6 +5,9 @@
   "description": "",
   "main": "index.js",
   "packageManager": "pnpm@11.18.0",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "typecheck": "turbo typecheck",
     "lint": "turbo lint",
