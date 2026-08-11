@@ -4,6 +4,7 @@
   "private": true,
   "description": "",
   "main": "index.js",
+  "packageManager": "pnpm@11.18.0",
   "scripts": {
     "typecheck": "turbo typecheck",
     "lint": "turbo lint",
