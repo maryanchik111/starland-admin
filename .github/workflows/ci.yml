@@ -1,0 +1,79 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Pinned explicitly to match this repo's actual pnpm major version.
+      # pnpm/action-setup@v4's auto-detection reads a top-level
+      # `packageManager` field (the corepack-style string field, e.g.
+      # "pnpm@11.11.0") — this repo does NOT have that field. It only has
+      # `devEngines.packageManager` (a Node.js devEngines hint object with a
+      # semver range), which is a different, informational-only field the
+      # action does not read. Auto-detection would find nothing here and the
+      # step would fail with an "unable to determine version" error, so we
+      # pin explicitly instead. Keep this in sync with
+      # `devEngines.packageManager.version` in package.json (currently
+      # "^11.11.0") if that ever changes.
+      - uses: pnpm/action-setup@v4
+        with: { version: 11 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      # `prisma migrate deploy` below does NOT generate the client — only
+      # `migrate dev` does — and this repo has no `postinstall` hook. That
+      # left generation entirely to @prisma/client's own postinstall
+      # auto-detection, which resolves the schema relative to the install's
+      # working directory and is not reliable with the schema at
+      # packages/db/prisma/schema.prisma rather than the repo root. Generate
+      # explicitly instead.
+      #
+      # DATABASE_URL is required even though `generate` never connects:
+      # Prisma resolves `env("DATABASE_URL")` in the datasource block while
+      # loading the schema and errors out if it is unset (verified —
+      # `prisma validate` fails the same way without it). Locally the value
+      # comes from packages/db/.env, which is gitignored and absent in CI.
+      - run: pnpm --filter @starland/db exec prisma generate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      - uses: supabase/setup-cli@v1
+        with: { version: latest }
+      - run: supabase start
+      # ADR 0003: `health_key()` reads from Supabase Vault, not a database
+      # GUC — hosted Supabase blocks `ALTER DATABASE/ROLE ... SET` for
+      # custom parameters even for the project owner, so the previous
+      # `alter database postgres set app.health_key = ...` here worked only
+      # because local `supabase start`'s `postgres` is a true superuser; it
+      # no longer matches how the function actually resolves the key.
+      - run: psql "$DATABASE_URL" -c "select vault.create_secret('ci-key', 'app_health_key', 'CI dev encryption key')"
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      - run: pnpm --filter @starland/db exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      # `prisma migrate deploy` above is what creates the non-superuser
+      # `app_runtime` role (see the app_runtime_role migration). Its password
+      # is intentionally never baked into a migration file (it's a secret —
+      # see docs/adr/0001-prisma-with-supabase-rls.md) and must be set
+      # out-of-band, the same way a local developer sets it manually after
+      # applying migrations.
+      - run: psql "$DATABASE_URL" -c "alter role app_runtime password 'ci-runtime-password'"
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      - run: pnpm --filter @starland/db seed
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      - run: pnpm typecheck
+      - run: pnpm lint
+      # Almost all RLS tests (via packages/db/test/rls-harness.ts's `asUser`)
+      # connect through `withUserContext`/`appPrisma`, which reads
+      # APP_DATABASE_URL (the app_runtime role), not DATABASE_URL. Without
+      # this, every RLS-dependent test fails in CI even though it passes
+      # locally where a developer has already set APP_DATABASE_URL in
+      # packages/db/.env.
+      - run: pnpm test
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+          APP_DATABASE_URL: postgresql://app_runtime:ci-runtime-password@127.0.0.1:54322/postgres

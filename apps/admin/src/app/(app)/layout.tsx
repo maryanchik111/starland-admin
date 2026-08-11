@@ -1,0 +1,30 @@
+import { AppSidebar } from '@/components/layout/app-sidebar'
+import { Header } from '@/components/layout/header'
+import { CommandMenu } from '@/components/layout/command-menu'
+import { visibleNavItems } from '@/components/layout/visible-nav-items'
+import { requireSession } from '@/lib/session'
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
+import { PersonModalProvider } from '@/components/person-modal-provider'
+
+export default async function AppLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const session = await requireSession()
+  const items = visibleNavItems(session.permissions)
+  const serializableItems = items.map(({ title, url }) => ({ title, url }))
+
+  return (
+    <PersonModalProvider>
+      <SidebarProvider>
+        <AppSidebar items={serializableItems} />
+        <SidebarInset>
+          <Header fullName={session.fullName} />
+          <main className="flex-1 p-6">{children}</main>
+        </SidebarInset>
+        <CommandMenu items={serializableItems} />
+      </SidebarProvider>
+    </PersonModalProvider>
+  )
+}

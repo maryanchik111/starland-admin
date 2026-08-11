@@ -1,0 +1,591 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // Migrations here create RLS policies that call Supabase's auth.uid(),
+  // which does not exist in a plain freshly-created Postgres database.
+  // `prisma migrate dev` needs a shadow database to replay that SQL against,
+  // so SHADOW_DATABASE_URL points at one pre-seeded with a stub auth.uid().
+  // Run `pnpm --filter @starland/db run shadow:bootstrap` to prepare it
+  // (idempotent — safe after a Supabase reset or on a clean checkout).
+  // See docs/adr/0001-prisma-with-supabase-rls.md.
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+model AppUser {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authUserId String    @unique @map("auth_user_id") @db.Uuid
+  fullName   String    @map("full_name")
+  email      String    @unique
+  avatarPath String?   @map("avatar_path")
+  isActive   Boolean   @default(true) @map("is_active")
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("app_users")
+}
+
+model AppSetting {
+  key         String   @id
+  value       Json
+  description String
+  updatedBy   String?  @map("updated_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("app_settings")
+}
+
+enum ScopeKind {
+  global
+  own_teaching
+  mentor_classes
+  own_children
+  self
+
+  @@map("scope_kind")
+}
+
+enum ScopeType {
+  global
+  class
+  subject
+  student
+  teaching_assignment
+  user
+
+  @@map("scope_type")
+}
+
+enum GrantEffect {
+  allow
+  deny
+
+  @@map("grant_effect")
+}
+
+model Permission {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique
+  category    String
+  description String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  rolePermissions RolePermission[]
+  grants          PermissionGrant[]
+
+  @@map("permissions")
+}
+
+model Role {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique
+  name        String
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@map("roles")
+}
+
+model RolePermission {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  roleId       String    @map("role_id") @db.Uuid
+  permissionId String    @map("permission_id") @db.Uuid
+  scopeKind    ScopeKind @map("scope_kind")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId, scopeKind])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  roleId    String    @map("role_id") @db.Uuid
+  grantedBy String?   @map("granted_by") @db.Uuid
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+  revokedBy String?   @map("revoked_by") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  // Partial unique index (userId, roleId) WHERE revoked_at IS NULL lives in
+  // the migration's raw SQL — Prisma has no declarative way to express a
+  // partial unique index, so it isn't modeled here (see
+  // 20260807085015_user_role_soft_revoke/migration.sql).
+  @@map("user_roles")
+}
+
+model PermissionGrant {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String      @map("user_id") @db.Uuid
+  permissionId String      @map("permission_id") @db.Uuid
+  effect       GrantEffect
+  scopeType    ScopeType   @map("scope_type")
+  scopeId      String?     @map("scope_id") @db.Uuid
+  reason       String
+  grantedBy    String      @map("granted_by") @db.Uuid
+  expiresAt    DateTime?   @map("expires_at") @db.Timestamptz
+  revokedAt    DateTime?   @map("revoked_at") @db.Timestamptz
+  revokedBy    String?     @map("revoked_by") @db.Uuid
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@index([userId, permissionId])
+  @@map("permission_grants")
+}
+
+model UserEffectiveScope {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  permissionCode String    @map("permission_code")
+  scopeType      ScopeType @map("scope_type")
+  scopeId        String?   @map("scope_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([userId, permissionCode, scopeType, scopeId])
+  @@index([userId, permissionCode, scopeType])
+  @@map("user_effective_scopes")
+}
+
+enum EnrollmentStatusKind {
+  active
+  transferred_internal
+  withdrawn
+  graduated
+  expelled
+  academic_leave
+
+  @@map("enrollment_status_kind")
+}
+
+enum EmploymentStatusKind {
+  working
+  vacation
+  sick_leave
+  maternity_leave
+  unpaid_leave
+  dismissed
+
+  @@map("employment_status_kind")
+}
+
+enum OrderKind {
+  enrollment
+  exclusion
+  graduation
+  transfer
+  hiring
+  dismissal
+  leave
+  award
+
+  @@map("order_kind")
+}
+
+model SchoolOrder {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  number    String
+  issuedOn  DateTime  @map("issued_on") @db.Date
+  kind      OrderKind
+  title     String
+  filePath  String?   @map("file_path")
+  createdBy String    @map("created_by") @db.Uuid
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  employees   Employee[]
+  enrollments Enrollment[]
+
+  @@index([kind, issuedOn])
+  @@map("school_orders")
+}
+
+model StaffPosition {
+  code       String    @id
+  name       String
+  isTeaching Boolean   @default(true) @map("is_teaching")
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  employees Employee[]
+
+  @@map("staff_positions")
+}
+
+enum CalendarDayKind {
+  holiday
+  vacation
+  remote
+  exam
+
+  @@map("calendar_day_kind")
+}
+
+model AcademicYear {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String    @unique
+  startsOn  DateTime  @map("starts_on") @db.Date
+  endsOn    DateTime  @map("ends_on") @db.Date
+  isCurrent Boolean   @default(false) @map("is_current")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  periods  AcademicPeriod[]
+  classes  Class[]
+  calendar AcademicCalendarDay[]
+
+  @@map("academic_years")
+}
+
+model AcademicPeriod {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  academicYearId String   @map("academic_year_id") @db.Uuid
+  name           String
+  ordinal        Int
+  startsOn       DateTime @map("starts_on") @db.Date
+  endsOn         DateTime @map("ends_on") @db.Date
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  @@unique([academicYearId, ordinal])
+  @@map("academic_periods")
+}
+
+model Class {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  gradeLevel     Int       @map("grade_level")
+  name           String
+  mentorUserId   String?   @map("mentor_user_id") @db.Uuid
+  assistantUserId String?  @map("assistant_user_id") @db.Uuid
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  enrollments   Enrollment[]
+  assignments TeachingAssignment[]
+
+  @@unique([academicYearId, name])
+  @@index([mentorUserId])
+  @@map("classes")
+}
+
+model Subject {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String    @unique
+  name      String
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  assignments TeachingAssignment[]
+
+  @@map("subjects")
+}
+
+model Room {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String    @unique
+  capacity  Int?
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("rooms")
+}
+
+model BellSlot {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ordinal    Int
+  startsAt   String   @map("starts_at") @db.VarChar(5)
+  endsAt     String   @map("ends_at") @db.VarChar(5)
+  gradeLevel Int?     @map("grade_level")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([ordinal, gradeLevel])
+  @@map("bell_slots")
+}
+
+model AcademicCalendarDay {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  academicYearId String          @map("academic_year_id") @db.Uuid
+  date           DateTime        @db.Date
+  kind           CalendarDayKind
+  title          String
+  isTeachingDay  Boolean         @default(false) @map("is_teaching_day")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  @@unique([academicYearId, date])
+  @@map("academic_calendar")
+}
+
+model Student {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  firstName    String    @map("first_name")
+  lastName     String    @map("last_name")
+  middleName   String?   @map("middle_name")
+  bornOn       DateTime  @map("born_on") @db.Date
+  photoPath    String?   @map("photo_path")
+  livingAddress String?  @map("living_address")
+  criticalNote String?   @map("critical_note")
+  parentalConsentGivenAt DateTime? @map("parental_consent_given_at") @db.Date
+  parentalConsentEnteredBy String?  @map("parental_consent_entered_by") @db.Uuid
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  enrollments   Enrollment[]
+  guardianships Guardianship[]
+  cards         PersonCard[]
+  measurements  StudentMeasurement[]
+
+  @@index([lastName, firstName])
+  @@map("students")
+}
+
+model GuardianPerson {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  firstName String    @map("first_name")
+  lastName  String    @map("last_name")
+  middleName String?  @map("middle_name")
+  phone     String?
+  email     String?
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  guardianships Guardianship[]
+
+  @@map("guardian_persons")
+}
+
+model Guardianship {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId            String   @map("student_id") @db.Uuid
+  personId             String   @map("person_id") @db.Uuid
+  relation             String
+  isLegalRepresentative Boolean @default(false) @map("is_legal_representative")
+  canPickUp            Boolean  @default(true) @map("can_pick_up")
+  receivesNotifications Boolean @default(true) @map("receives_notifications")
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  student Student        @relation(fields: [studentId], references: [id])
+  person  GuardianPerson @relation(fields: [personId], references: [id])
+
+  @@unique([studentId, personId])
+  @@map("guardianships")
+}
+
+model Enrollment {
+  id            String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId     String               @map("student_id") @db.Uuid
+  classId       String               @map("class_id") @db.Uuid
+  fromDate      DateTime             @map("from_date") @db.Date
+  toDate        DateTime?            @map("to_date") @db.Date
+  statusKind    EnrollmentStatusKind @default(active) @map("status_kind")
+  reason        String?
+  statusOrderId String?              @map("status_order_id") @db.Uuid
+  createdAt     DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  student     Student      @relation(fields: [studentId], references: [id])
+  class       Class        @relation(fields: [classId], references: [id])
+  statusOrder SchoolOrder? @relation(fields: [statusOrderId], references: [id])
+
+  @@index([classId, toDate])
+  @@index([studentId])
+  @@map("enrollments")
+}
+
+model PersonCard {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId String?   @map("student_id") @db.Uuid
+  staffUserId String? @map("staff_user_id") @db.Uuid
+  qrCode    String    @map("qr_code")
+  validFrom DateTime  @map("valid_from") @db.Date
+  validTo   DateTime? @map("valid_to") @db.Date
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  student Student? @relation(fields: [studentId], references: [id])
+
+  @@index([qrCode])
+  @@map("person_cards")
+}
+
+model StudentMeasurement {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId  String   @map("student_id") @db.Uuid
+  measuredOn DateTime @map("measured_on") @db.Date
+  heightCm   Int?     @map("height_cm")
+  weightKg   Decimal? @map("weight_kg") @db.Decimal(5, 2)
+  enteredBy  String   @map("entered_by") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@unique([studentId, measuredOn])
+  @@map("student_measurements")
+}
+
+model LinkedAccount {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerUserId  String   @map("owner_user_id") @db.Uuid
+  studentId    String   @map("student_id") @db.Uuid
+  linkedBy     String   @map("linked_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([ownerUserId, studentId])
+  @@map("linked_accounts")
+}
+
+model StudentHealth {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId      String    @unique @map("student_id") @db.Uuid
+  healthGroup    String?   @map("health_group")
+  peGroup        String?   @map("pe_group")
+  allergyCodes   String[]  @map("allergy_codes")
+  chronicCodes   String[]  @map("chronic_codes")
+  activityLimits String?   @map("activity_limits")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("student_health")
+}
+
+model StudentHealthNote {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studentId     String   @unique @map("student_id") @db.Uuid
+  contentCipher Bytes    @map("content_cipher")
+  updatedBy     String?  @map("updated_by") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("student_health_notes")
+}
+
+model SensitiveAccessLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id") @db.Uuid
+  action     String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([entityType, entityId])
+  @@index([userId, createdAt])
+  @@map("sensitive_access_logs")
+}
+
+// Deliberately independent of AppUser — same shape as GuardianPerson: an
+// employee record must exist for people who never get a system login
+// (security guards, cooks, cleaners), so `userId` is optional, not the
+// anchor. When it is set, the UI pre-fills from AppUser.fullName as a
+// convenience, but the fields below remain the editable source of truth
+// (see docs/plans/2026-08-10-staff-and-status-model.md, Task 3).
+model Employee {
+  id               String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String?              @unique @map("user_id") @db.Uuid
+  firstName        String               @map("first_name")
+  lastName         String               @map("last_name")
+  middleName       String?              @map("middle_name")
+  phone            String?
+  email            String?
+  positionCode     String?              @map("position_code")
+  category         String?
+  experienceYears  Int?                 @map("experience_years")
+  employmentStatus EmploymentStatusKind @default(working) @map("employment_status")
+  hiredOn          DateTime?            @map("hired_on") @db.Date
+  dismissedOn      DateTime?            @map("dismissed_on") @db.Date
+  statusOrderId    String?              @map("status_order_id") @db.Uuid
+  deletedAt        DateTime?            @map("deleted_at") @db.Timestamptz
+  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  position    StaffPosition? @relation(fields: [positionCode], references: [code])
+  statusOrder SchoolOrder?   @relation(fields: [statusOrderId], references: [id])
+  awards      StaffAward[]
+
+  @@map("employees")
+}
+
+model StaffAward {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employeeId String    @map("employee_id") @db.Uuid
+  title      String
+  awardedOn  DateTime  @map("awarded_on") @db.Date
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("staff_awards")
+}
+
+model AuditLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id") @db.Uuid
+  action     String
+  oldValues  Json?    @map("old_values")
+  newValues  Json?    @map("new_values")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([entityType, entityId, createdAt])
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}
+
+model TeachingAssignment {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teacherUserId String    @map("teacher_user_id") @db.Uuid
+  subjectId     String    @map("subject_id") @db.Uuid
+  classId       String    @map("class_id") @db.Uuid
+  periodId      String    @map("period_id") @db.Uuid
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  subject Subject @relation(fields: [subjectId], references: [id])
+  class   Class   @relation(fields: [classId], references: [id])
+
+  // Partial unique index (teacherUserId, subjectId, classId, periodId) WHERE
+  // deleted_at IS NULL lives in the migration's raw SQL — Prisma has no
+  // declarative way to express a partial unique index, so it isn't modeled
+  // here (see 20260810144500_teaching_assignments_soft_delete_unique).
+  @@index([teacherUserId])
+  @@map("teaching_assignments")
+}

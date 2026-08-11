@@ -1,0 +1,23 @@
+-- Idempotency safety net for app_runtime's RLS-relevant attributes.
+--
+-- The previous migration's `create role ... nosuperuser nobypassrls` inside
+-- an `if not exists` guard only fixes those attributes at *creation* time.
+-- If app_runtime already existed in the cluster for any other reason (a
+-- partial prior setup, a manual mistake), `create role` never runs and
+-- nothing corrects a pre-existing `bypassrls = true` — RLS would be
+-- silently bypassed for the runtime role with nothing in the migration
+-- history noticing.
+--
+-- This statement is unconditional and runs on every `migrate deploy`, so it
+-- re-asserts `nobypassrls` regardless of whether app_runtime was just
+-- created or already existed. It is safe to repeat: setting an attribute
+-- to a value it already has is a no-op.
+--
+-- `postgres` can run this even though it is not a superuser: altering
+-- BYPASSRLS only requires the caller to itself hold BYPASSRLS (verified
+-- live: `select rolbypassrls from pg_roles where rolname = 'postgres'`
+-- returns true), unlike SUPERUSER, which can only be granted or revoked by
+-- an existing superuser. That is why `nosuperuser` was dropped from the
+-- previous migration's redundant re-assertion but `nobypassrls` belongs
+-- back here on its own.
+alter role app_runtime nobypassrls;

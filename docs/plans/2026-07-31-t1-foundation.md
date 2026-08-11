@@ -18,7 +18,13 @@
 - Іменування: таблиці `snake_case` у множині, колонки `snake_case`, FK `<entity>_id`, кожна таблиця має `id uuid default gen_random_uuid()`, `created_at`, `updated_at`.
 - Мова: код і колонки англійською, UI-тексти українською через `packages/i18n`.
 - `any` заборонено. Валідація на межах — Zod.
-- Кожна нова таблиця отримує позитивний і негативний RLS-тест.
+- Кожна нова таблиця отримує RLS-політики. Тести — за рівнем чутливості:
+  таблиці з персональними даними або скоупованим доступом (`students`,
+  `student_health*`, `guardianships`, `enrollments`, `person_cards`, `classes`,
+  `teaching_assignments`, `audit_logs`, `permission_grants`, `user_roles`) —
+  позитивний і негативний тест на кожну дотичну роль; довідники (`subjects`,
+  `rooms`, `bell_slots`, `academic_*`) — один спільний тест «без сесії не видно
+  нічого».
 - Комміти — на кожен крок «Commit» у плані, повідомлення англійською в стилі Conventional Commits.
 
 ---
@@ -26,7 +32,12 @@
 ### Task 1: Монорепо, тулінг, git
 
 **Files:**
-- Create: `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json`, `.gitignore`, `.env.example`, `eslint.config.js`, `vitest.workspace.ts`
+- Create: `package.json`, `pnpm-workspace.yaml`, `turbo.json`, `tsconfig.base.json`, `.gitignore`, `.env.example`, `eslint.config.js`
+
+**Версії:** `typescript` пінимо на `^5.9` — `typescript-eslint` ще не підтримує
+TypeScript 7, і `pnpm lint` із ним падає. Конфігурації `vitest` живуть у кожному
+пакеті окремо (`packages/*/vitest.config.ts`, перший — у Task 3); кореневого
+`vitest.workspace.ts` не робимо, Vitest 4 цю конвенцію прибрав.
 - Create: `packages/db/package.json`, `packages/domain/package.json`, `packages/i18n/package.json`
 
 **Interfaces:**
@@ -232,6 +243,256 @@ export { prisma } from './client.js'
 ```bash
 git add -A
 git commit -m "feat(db): add supabase local setup, prisma and app_users table"
+```
+
+---
+
+### Task 2d: Фото людей
+
+Додано під час виконання на вимогу замовника: фото використовується по всій
+системі, тому колонки мають зʼявитися до того, як на них почнуть спиратися
+екрани. Деталі — розділ 4.15 спеки.
+
+**Files:**
+- Create: `packages/db/prisma/migrations/*_people_photos/migration.sql`
+- Modify: `packages/db/prisma/schema.prisma`
+
+**Interfaces:**
+- Consumes: Task 2
+- Produces: `app_users.avatar_path`; приватний бакет `people-photos`
+  (`students.photo_path` додається разом із таблицею в Task 7)
+
+- [ ] **Step 1: Додати колонку в модель**
+
+У моделі `AppUser` в `schema.prisma`, після `email`:
+```prisma
+  avatarPath String? @map("avatar_path")
+```
+
+Зберігається **шлях у бакеті**, не URL: підписаний URL живе 5 хвилин, і його
+місце — у відповіді сервера, а не в базі.
+
+- [ ] **Step 2: Створити міграцію**
+
+```bash
+pnpm --filter @starland/db exec prisma migrate dev --create-only --name people_photos
+```
+
+У згенерований `migration.sql` дописати створення приватного бакета:
+```sql
+insert into storage.buckets (id, name, public)
+values ('people-photos', 'people-photos', false)
+on conflict (id) do nothing;
+```
+
+`public = false` — обовʼязково. Публічний бакет із фотографіями дітей — це
+витік, а не зручність.
+
+- [ ] **Step 3: Застосувати й перевірити в живій базі**
+
+Run: `pnpm --filter @starland/db exec prisma migrate dev`
+Then: `docker exec <supabase_db_container> psql -U postgres -c "select id, public from storage.buckets where id='people-photos'"`
+Expected: один рядок, `public = f`.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add -A
+git commit -m "feat(db): add avatar path and private people-photos bucket"
+```
+
+---
+
+### Task 2c: Роль застосунку і контекст користувача
+
+Додано під час виконання. Причина: Prisma підключається як `postgres`, а
+PostgreSQL не застосовує RLS до суперкористувачів — тобто політики, створені в
+Task 2, для коду застосунку не діють узагалі. Без цієї задачі решта Т1 будує
+захист, якого немає.
+
+**Files:**
+- Create: `packages/db/prisma/migrations/*_app_runtime_role/migration.sql`
+- Create: `packages/db/src/user-context.ts`, `packages/db/test/user-context.test.ts`
+- Modify: `packages/db/src/client.ts`, `packages/db/src/index.ts`, `packages/db/.env.example`
+
+**Interfaces:**
+- Consumes: Task 2
+- Produces: роль `app_runtime`, змінна `APP_DATABASE_URL`, клієнт `appPrisma`, функція `withUserContext(authUserId, fn)`
+
+- [ ] **Step 1: Написати падаючий тест**
+
+`packages/db/test/user-context.test.ts`:
+```ts
+import { describe, expect, it } from 'vitest'
+import { prisma } from '../src/index.js'
+import { withUserContext } from '../src/user-context.js'
+import { createAuthUser } from './rls-harness.js'
+
+describe('withUserContext', () => {
+  it('shows the caller only their own app_users row', async () => {
+    const alice = await createAuthUser(`ctx-alice-${Date.now()}@starland.test`)
+    await createAuthUser(`ctx-bob-${Date.now()}@starland.test`)
+
+    const rows = await withUserContext(alice, (tx) =>
+      tx.$queryRaw<Array<{ email: string }>>`select email from app_users`,
+    )
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.email).toContain('ctx-alice')
+  })
+
+  it('returns nothing when no user context is set', async () => {
+    await createAuthUser(`ctx-nobody-${Date.now()}@starland.test`)
+
+    const rows = await appPrismaRaw()
+    expect(rows).toHaveLength(0)
+  })
+
+  it('does not leak the context into the next transaction', async () => {
+    const carol = await createAuthUser(`ctx-carol-${Date.now()}@starland.test`)
+    await withUserContext(carol, (tx) => tx.$queryRaw`select 1`)
+
+    const rows = await appPrismaRaw()
+    expect(rows).toHaveLength(0)
+  })
+
+  it('still sees every row through the privileged migration client', async () => {
+    await createAuthUser(`ctx-admin-${Date.now()}@starland.test`)
+    const all = await prisma.appUser.findMany()
+    expect(all.length).toBeGreaterThan(0)
+  })
+})
+```
+
+`appPrismaRaw()` — локальний хелпер у цьому ж файлі: `appPrisma.$queryRaw` без
+контексту користувача. Третій тест — головний: він ловить витік контексту між
+транзакціями через пулер, що є найтиповішою помилкою цього підходу.
+
+- [ ] **Step 2: Запустити й переконатися, що падає**
+
+Run: `pnpm --filter @starland/db test user-context`
+Expected: FAIL — модуль `user-context.js` не знайдено.
+
+- [ ] **Step 3: Створити роль міграцією**
+
+```bash
+pnpm --filter @starland/db exec prisma migrate dev --create-only --name app_runtime_role
+```
+
+У `migration.sql`:
+```sql
+-- Роль рантайму: без суперкористувача й без права обходити RLS.
+-- Пароль приходить із оточення, у міграції його немає.
+do $$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'app_runtime') then
+    create role app_runtime login noinherit nosuperuser nocreatedb nocreaterole nobypassrls;
+  end if;
+end
+$$;
+
+alter role app_runtime nosuperuser nobypassrls;
+
+-- Права на схему й таблиці бере від штатної ролі Supabase `authenticated`,
+-- щоб не переписувати гранти на кожну нову таблицю.
+grant authenticated to app_runtime;
+grant usage on schema public to app_runtime;
+
+-- Таблиці, створені роллю `postgres` (не `supabase_admin`), НЕ отримують
+-- прав для `authenticated` за замовчуванням — RLS без гранту на select
+-- означає «підключився й нічого не бачить», а не «бачить своє». Тому:
+-- 1) явний грант на вже наявні таблиці зараз,
+grant select, insert, update, delete on all tables in schema public to authenticated;
+
+-- 2) default privileges — щоб кожна НАСТУПНА таблиця отримувала те саме
+-- автоматично, без правки цього блоку в кожній наступній міграції.
+alter default privileges for role postgres in schema public
+  grant select, insert, update, delete on tables to authenticated;
+```
+
+RLS лишається останнім словом: grant відкриває видимість таблиці для ролі,
+а політика вирішує, які саме рядки. Без гранту політика не встигає навіть
+спрацювати — запит відхиляється на рівні прав таблиці.
+
+Пароль ролі задається поза міграцією (він секрет):
+```bash
+psql "$DATABASE_URL" -c "alter role app_runtime password 'local-dev-password'"
+```
+у `.env`: `APP_DATABASE_URL=postgresql://app_runtime:local-dev-password@127.0.0.1:54322/postgres`
+у `.env.example` — тільки імена змінних.
+
+- [ ] **Step 4: Реалізувати контекст**
+
+`packages/db/src/user-context.ts`:
+```ts
+import { PrismaClient } from '@prisma/client'
+
+const globalForApp = globalThis as unknown as { appPrisma?: PrismaClient }
+
+/** Рантайм-клієнт: роль без права обходити RLS. */
+export const appPrisma =
+  globalForApp.appPrisma ??
+  new PrismaClient({ datasources: { db: { url: process.env.APP_DATABASE_URL } } })
+
+if (process.env.NODE_ENV !== 'production') globalForApp.appPrisma = appPrisma
+
+type Tx = Parameters<Parameters<PrismaClient['$transaction']>[0]>[0]
+
+/**
+ * Виконує запити від імені користувача. Контекст живе рівно одну транзакцію:
+ * `set_config(..., true)` і `set local role` скидаються на її кінці, тому
+ * зʼєднання, повернуте в пул, не несе чужих прав.
+ */
+export async function withUserContext<T>(
+  authUserId: string,
+  fn: (tx: Tx) => Promise<T>,
+): Promise<T> {
+  return appPrisma.$transaction(async (tx) => {
+    await tx.$executeRaw`select set_config('request.jwt.claims', ${JSON.stringify({
+      sub: authUserId,
+      role: 'authenticated',
+    })}, true)`
+    await tx.$executeRawUnsafe('set local role authenticated')
+    return fn(tx)
+  })
+}
+```
+
+`set local role` іде **після** `set_config`: після зміни ролі права на
+`set_config` може вже не бути.
+
+Додати в `packages/db/src/index.ts`:
+```ts
+export { appPrisma, withUserContext } from './user-context.js'
+```
+
+- [ ] **Step 5: Застосувати й перевірити роль у живій базі перед тестами**
+
+Run: `pnpm --filter @starland/db exec prisma migrate dev`
+
+Перевірити, що роль справді без суперправ і без обходу RLS (не вірити коду
+міграції на слово — перевірити результат):
+```bash
+docker exec <supabase_db_container> psql -U postgres -c \
+  "select rolname, rolsuper, rolbypassrls from pg_roles where rolname='app_runtime'"
+```
+Expected: один рядок, `rolsuper = f`, `rolbypassrls = f`.
+
+Потім запустити тести:
+Run: `pnpm --filter @starland/db test user-context`
+Expected: PASS, чотири тести.
+
+- [ ] **Step 6: Оновити ADR**
+
+Дописати в `docs/adr/0001-prisma-with-supabase-rls.md` розділ про два підключення:
+чому міграції йдуть під `postgres`, а рантайм — під `app_runtime`, і чому
+контекст користувача транзакційний, а не на рівні зʼєднання.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add -A
+git commit -m "feat(db): add non-superuser runtime role and transactional user context"
 ```
 
 ---
@@ -1369,6 +1630,7 @@ model Student {
   lastName     String    @map("last_name")
   middleName   String?   @map("middle_name")
   bornOn       DateTime  @map("born_on") @db.Date
+  photoPath    String?   @map("photo_path")
   livingAddress String?  @map("living_address")
   criticalNote String?   @map("critical_note")
   parentalConsentGivenAt DateTime? @map("parental_consent_given_at") @db.Date
@@ -2647,6 +2909,8 @@ import { loadEffectivePermissions } from '@starland/domain'
 import type { EffectivePermissions } from '@starland/domain'
 
 export interface Session {
+  /** Ідентифікатор у auth.users — саме він іде у withUserContext. */
+  authUserId: string
   appUserId: string
   fullName: string
   permissions: EffectivePermissions
@@ -2674,6 +2938,7 @@ export async function getSession(): Promise<Session | null> {
   if (!appUser) return null
 
   return {
+    authUserId: data.user.id,
     appUserId: appUser.id,
     fullName: appUser.fullName,
     permissions: await loadEffectivePermissions(appUser.id),
@@ -2888,14 +3153,36 @@ export async function updateStudent(studentId: string, raw: unknown): Promise<vo
 ```tsx
 import Link from 'next/link'
 
-export function PersonLink({ id, name, kind }: { id: string; name: string; kind: 'student' | 'staff' }) {
+export function PersonLink({
+  id, name, kind, photoUrl,
+}: {
+  id: string
+  name: string
+  kind: 'student' | 'staff'
+  /** Підписаний URL із коротким TTL. Відсутній — рендеримо ініціали. */
+  photoUrl?: string | undefined
+}) {
+  const initials = name.split(' ').map((p) => p[0] ?? '').slice(0, 2).join('')
+
   return (
-    <Link className="underline underline-offset-2" href={`/${kind === 'student' ? 'students' : 'staff'}/${id}`}>
+    <Link className="inline-flex items-center gap-2 underline underline-offset-2"
+          href={`/${kind === 'student' ? 'students' : 'staff'}/${id}`}>
+      {photoUrl ? (
+        <img src={photoUrl} alt="" className="h-6 w-6 rounded-full object-cover" />
+      ) : (
+        <span aria-hidden className="grid h-6 w-6 place-items-center rounded-full bg-neutral-200 text-xs">
+          {initials}
+        </span>
+      )}
       {name}
     </Link>
   )
 }
 ```
+
+Фото приходить готовим підписаним URL, а компонент його не добуває: інакше
+список на 100 рядків зробив би 100 звернень до Storage. Заглушка з ініціалів —
+частина компонента, бо «фото ще не завантажили» це нормальний стан, а не помилка.
 
 Правило зі спеки: будь-яка згадка людини клікабельна. Один компонент означає, що це правило неможливо забути в новому екрані — інших способів вивести імʼя просто немає.
 
@@ -2913,19 +3200,23 @@ export default async function StudentsPage({
 }: {
   searchParams: Promise<{ q?: string }>
 }) {
-  await requireSession()
+  const session = await requireSession()
   const { q } = await searchParams
 
-  // RLS сам відсіче чужих учнів — додаткового фільтра за правами тут не треба.
-  const students = await prisma.student.findMany({
-    where: q
-      ? { OR: [{ lastName: { contains: q, mode: 'insensitive' } },
-               { firstName: { contains: q, mode: 'insensitive' } }] }
-      : undefined,
-    orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
-    take: 100,
-    include: { enrollments: { where: { toDate: null }, include: { class: true }, take: 1 } },
-  })
+  // Запит іде через withUserContext, тому RLS справді відсікає чужих учнів.
+  // Через звичайний `prisma` тут була б дірка: те підключення суперкористувацьке
+  // й політики його не стосуються.
+  const students = await withUserContext(session.authUserId, (tx) =>
+    tx.student.findMany({
+      where: q
+        ? { OR: [{ lastName: { contains: q, mode: 'insensitive' } },
+                 { firstName: { contains: q, mode: 'insensitive' } }] }
+        : undefined,
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+      take: 100,
+      include: { enrollments: { where: { toDate: null }, include: { class: true }, take: 1 } },
+    }),
+  )
 
   return (
     <main className="p-6">
@@ -2967,14 +3258,18 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
   const { id } = await params
   const session = await requireSession()
 
-  const student = await prisma.student.findUnique({
-    where: { id },
-    include: {
-      enrollments: { where: { toDate: null }, include: { class: true }, take: 1 },
-      guardianships: { include: { person: true } },
-      measurements: { orderBy: { measuredOn: 'desc' }, take: 10 },
-    },
-  })
+  // Через контекст користувача: чужий учень повертає null і сторінка дає 404,
+  // а не «знайшли, але не показали».
+  const student = await withUserContext(session.authUserId, (tx) =>
+    tx.student.findUnique({
+      where: { id },
+      include: {
+        enrollments: { where: { toDate: null }, include: { class: true }, take: 1 },
+        guardianships: { include: { person: true } },
+        measurements: { orderBy: { measuredOn: 'desc' }, take: 10 },
+      },
+    }),
+  )
   if (!student) notFound()
 
   const classId = student.enrollments[0]?.classId

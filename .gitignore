@@ -6,3 +6,4 @@ dist
 .turbo
 supabase/.temp
 .superpowers/
+reference-admin/
