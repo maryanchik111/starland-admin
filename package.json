@@ -4,9 +4,8 @@
   "private": true,
   "description": "",
   "main": "index.js",
-  "packageManager": "pnpm@11.18.0",
   "engines": {
-    "node": "20.x"
+    "node": "24.x"
   },
   "scripts": {
     "typecheck": "turbo typecheck",
